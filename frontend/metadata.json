@@ -1,0 +1,6 @@
+{
+  "name": "Team Rocket - Voice Threat Intelligence",
+  "description": "Team Rocket Voice Threat Intelligence Platform - Detect AI voices, understand threats, and stay one step ahead.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

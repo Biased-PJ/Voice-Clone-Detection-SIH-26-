@@ -1,0 +1,105 @@
+from fastapi import APIRouter, HTTPException, Depends
+from datetime import datetime
+import uuid
+import random
+
+from app.database import db
+from app.dependencies import get_current_user
+from app.schemas import CallStartRequest, CallSessionResponse
+
+router = APIRouter()
+
+
+@router.post("/api/v1/calls/start", response_model=CallSessionResponse)
+async def start_call(payload: CallStartRequest, current_user=Depends(get_current_user)):
+    
+    session_id = str(uuid.uuid4())
+    session = {
+        "session_id": session_id,
+        "user_id": current_user["user_id"],
+        "language": payload.language,
+        "status": "active",
+        "started_at": datetime.utcnow().isoformat(),
+        "ended_at": None,
+    }
+    await db["call_sessions"].insert_one(session)
+    session.pop("_id", None)
+    return session
+
+
+@router.get("/api/v1/calls/{session_id}", response_model=CallSessionResponse)
+async def get_call(session_id: str, current_user=Depends(get_current_user)):
+    session = await db["call_sessions"].find_one({"session_id": session_id})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session["user_id"] != current_user["user_id"] and current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not your session")
+    session.pop("_id", None)
+    return session
+
+
+@router.post("/api/v1/calls/{session_id}/end", response_model=CallSessionResponse)
+async def end_call(session_id: str, current_user=Depends(get_current_user)):
+    existing = await db["call_sessions"].find_one({"session_id": session_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if existing["user_id"] != current_user["user_id"] and current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    cities = [
+        ("Delhi", 28.6139, 77.2090), ("Mumbai", 19.0760, 72.8777),
+        ("Bengaluru", 12.9716, 77.5946), ("Hyderabad", 17.3850, 78.4867),
+        ("Chennai", 13.0827, 80.2707), ("Kolkata", 22.5726, 88.3639),
+        ("Pune", 18.5204, 73.8567), ("Ahmedabad", 23.0225, 72.5714),
+        ("Jaipur", 26.9124, 75.7873), ("Lucknow", 26.8467, 80.9462),
+        ("Chandigarh", 30.7333, 76.7794), ("Bhopal", 23.2599, 77.4126),
+    ]
+    city, latitude, longitude = random.choice(cities)
+    result = await db["call_sessions"].find_one_and_update(
+        {"session_id": session_id},
+        {"$set": {
+            "status": "ended",
+            "ended_at": datetime.utcnow().isoformat(),
+            "threat_location": {"city": city, "latitude": latitude, "longitude": longitude},
+        }},
+        return_document=True,
+    )
+    result.pop("_id", None)
+    return result
+
+
+@router.get("/api/v1/calls")
+async def list_calls(current_user=Depends(get_current_user)):
+    """
+    A logged-in user's own analysis history — never a URL param, always
+    derived from the JWT. Admins additionally see demo data (is_demo: true
+    records in the "calls" collection) plus every user's real data.
+    """
+    is_admin = current_user.get("role") == "admin"
+
+    if is_admin:
+        analysis_filter = {}
+        session_filter = {}
+    else:
+        analysis_filter = {"user_id": current_user["user_id"]}
+        session_filter = {"user_id": current_user["user_id"]}
+
+    analysis_cursor = db["analysis_results"].find(analysis_filter).sort("created_at", -1)
+    analysis_results = await analysis_cursor.to_list(length=500)
+
+    session_cursor = db["call_sessions"].find(session_filter).sort("started_at", -1)
+    call_sessions = await session_cursor.to_list(length=500)
+
+    demo_calls = []
+    if is_admin:
+        demo_cursor = db["calls"].find({"is_demo": True})
+        demo_calls = await demo_cursor.to_list(length=500)
+
+    for doc in (*analysis_results, *call_sessions, *demo_calls):
+        doc.pop("_id", None)
+
+    return {
+        "analysis_results": analysis_results,
+        "call_sessions": call_sessions,
+        "demo_calls": demo_calls,
+    }

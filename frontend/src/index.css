@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+/* Shared "primary action" press/hover feel — used across pages so buttons
+   feel alive without every page needing its own bespoke animation CSS. */
+@keyframes pb-btn-ripple {
+  0% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.45); }
+  100% { box-shadow: 0 0 0 14px rgba(45, 212, 191, 0); }
+}
+
+.pb-primary-btn {
+  transition: transform 0.15s ease, box-shadow 0.25s ease;
+}
+.pb-primary-btn:hover {
+  transform: translateY(-1px) scale(1.015);
+}
+.pb-primary-btn:active {
+  transform: translateY(0) scale(0.98);
+  animation: pb-btn-ripple 0.5s ease-out;
+}
+
