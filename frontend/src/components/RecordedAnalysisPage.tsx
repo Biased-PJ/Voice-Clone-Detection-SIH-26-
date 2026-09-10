@@ -389,6 +389,7 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
           }
         }}
         user={user}
+      authToken={authToken}
         isOverlay={true}
       />
 

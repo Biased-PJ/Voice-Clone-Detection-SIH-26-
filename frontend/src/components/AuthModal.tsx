@@ -3,7 +3,7 @@ import { X, Lock, Mail, User, Shield, Check, Eye, EyeOff, Sparkles, AlertCircle 
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 import { UserProfile } from '../types';
-import { loginWithGoogle, loginWithEmail, registerWithEmail, getMe } from '../utils/api';
+import { loginWithGoogle, loginWithEmail, registerWithEmail, getMe, getGoogleAuthStatus } from '../utils/api';
 import { HAS_GOOGLE_AUTH } from '../utils/config';
 
 interface AuthModalProps {
@@ -39,12 +39,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleBackendReady, setGoogleBackendReady] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode);
       setError(null);
       setSuccess(null);
+      setGoogleBackendReady(null);
+      if (HAS_GOOGLE_AUTH) {
+        getGoogleAuthStatus().then((status) => setGoogleBackendReady(status.configured)).catch(() => setGoogleBackendReady(false));
+      }
     }
   }, [initialMode, isOpen]);
 
@@ -213,9 +218,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
 
           <div className="w-full flex justify-center [&>div]:w-full">
-            {!HAS_GOOGLE_AUTH ? (
+            {!HAS_GOOGLE_AUTH || googleBackendReady === false ? (
               <div className="w-full py-2.5 rounded-xl border border-dashed border-slate-700 text-center text-[11px] text-slate-500">
-                Google sign-in isn't configured (missing VITE_GOOGLE_CLIENT_ID) — use email below.
+                Google sign-in isn't fully configured — set VITE_GOOGLE_CLIENT_ID in the frontend and GOOGLE_CLIENT_ID in the backend, then restart both services.
               </div>
             ) : googleLoading ? (
               <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white text-slate-800 text-xs font-semibold">

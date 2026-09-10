@@ -56,6 +56,23 @@ async def login(payload: UserLoginRequest):
     return {"access_token": token}
 
 
+@router.get("/api/v1/auth/google/status")
+async def google_auth_status():
+    """Non-secret readiness check for the Google OAuth integration."""
+    client_configured = bool(os.getenv("GOOGLE_CLIENT_ID"))
+    try:
+        from google.oauth2 import id_token as _google_id_token  # noqa: F401
+        package_available = True
+    except ImportError:
+        package_available = False
+    return {
+        "configured": client_configured and package_available,
+        "client_configured": client_configured,
+        "backend_configured": client_configured,
+        "package_available": package_available,
+    }
+
+
 @router.post("/api/v1/auth/google", response_model=TokenResponse)
 async def google_auth(payload: GoogleAuthRequest):
     """

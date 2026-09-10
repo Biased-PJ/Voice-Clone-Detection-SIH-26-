@@ -32,6 +32,7 @@ import { ForensicsCall, CallSuggestion } from './CallForensicsInspector';
 
 interface CallForensicsTabProps {
   user: UserProfile;
+  authToken?: string | null;
   calls: ForensicsCall[];
   onBackToOverview: () => void;
   onNavigate?: (
@@ -45,6 +46,7 @@ interface CallForensicsTabProps {
 
 export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
   user,
+  authToken,
   calls,
   onBackToOverview,
   onNavigate,
@@ -441,6 +443,7 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
           }
         }}
         user={user}
+      authToken={authToken}
         onSignOut={onSignOut}
         isOverlay={true}
       />

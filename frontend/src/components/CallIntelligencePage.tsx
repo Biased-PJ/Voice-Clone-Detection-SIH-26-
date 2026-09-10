@@ -52,12 +52,14 @@ const EMPTY_RECORD: CallIntelligenceRecord = {
 
 function recordFromBackend(result: Record<string, any>): CallIntelligenceRecord {
   const score = Number(result.risk_score ?? 0);
+  const scamScore = Number(result.scam_score ?? 0);
   const classification: CallIntelligenceRecord['classification'] = result.risk_level === 'CRITICAL' || result.risk_level === 'HIGH'
     ? 'Critical' : result.risk_level === 'MEDIUM' ? 'Suspicious' : 'Safe';
   const transcript = typeof result.transcript === 'string' ? result.transcript.trim() : '';
   const factors = Array.isArray(result.risk_factors) ? result.risk_factors.filter(Boolean) : [];
-  const evidence = transcript || factors.join('; ');
-  const flags: CaughtFlag[] = factors.map((factor: string, index: number) => ({
+  const scamReasons = Array.isArray(result.scam_reasons) ? result.scam_reasons.filter(Boolean) : [];
+  const evidence = transcript || factors.join('; ') || scamReasons.join('; ');
+  const flags: CaughtFlag[] = [...factors, ...scamReasons.filter((reason: string) => !factors.includes(reason))].map((factor: string, index: number) => ({
     id: `${result.session_id || result._id}-factor-${index}`,
     title: factor,
     category: 'Backend risk factor',
@@ -71,11 +73,11 @@ function recordFromBackend(result: Record<string, any>): CallIntelligenceRecord 
     callId: result.session_id || result._id || '',
     callerNumber: result.file_name || 'Recorded audio',
     targetNumber: 'Authenticated user', carrier: result.threat_location?.city || 'Not provided',
-    duration: result.duration ? `${Math.floor(result.duration / 60)}:${String(Math.floor(result.duration % 60)).padStart(2, '0')}` : 'Not provided',
-    timestamp: result.created_at || result.started_at || '', threatScore: score,
-    aiVoiceScore: Math.round(Number(result.synthetic_probability ?? 0) * 100), scamIntentScore: score,
+    duration: (() => { const d = Number(result.duration_seconds ?? result.duration ?? 0); return d > 0 ? `${Math.floor(d / 60)}:${String(Math.floor(d % 60)).padStart(2, '0')}` : 'Not provided'; })(),
+    timestamp: result.created_at ? new Date(result.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST' : (result.started_at || ''), threatScore: score,
+    aiVoiceScore: Math.round(Number(result.synthetic_probability ?? 0) * 100), scamIntentScore: scamScore,
     classification, verdictType: classification === 'Critical' ? 'Cloned' : classification === 'Safe' ? 'Safe' : 'Suspicious',
-    verdictReason: factors.length ? `Classified ${classification.toLowerCase()} because: ${factors.join('; ')}.` : (result.suggestion || 'No risk factors were returned.'),
+    verdictReason: factors.length ? `Classified ${classification.toLowerCase()} because: ${factors.join('; ')}.` : (result.conclusion || result.suggestion || 'No risk factors were returned.'),
     primaryEvidence: evidence, aiModelDetected: 'Backend risk engine',
     summary: result.suggestion || 'Backend analysis completed without a summary.', transcripts: transcript ? [{ id: `${result.session_id}-transcript`, speaker: 'Caller', speakerLabel: 'Backend transcript', timestamp: '00:00', timeSec: 0, text: transcript }] : [], flags,
   };
@@ -125,7 +127,16 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
         .then((data) => {
           const analyses = data.analysis_results || [];
           setUserAnalyses(analyses);
-          setRecord(initialCallId ? recordFromBackend(analyses.find((item) => item.session_id === initialCallId) || EMPTY_RECORD) : EMPTY_RECORD);
+          const selected = initialCallId
+            ? analyses.find((item) => item.session_id === initialCallId)
+            : analyses[0];
+          if (selected) {
+            setCurrentCallId(selected.session_id || selected._id || '');
+            setSearchInput(selected.session_id || selected._id || '');
+            setRecord(recordFromBackend(selected));
+          } else {
+            setRecord(EMPTY_RECORD);
+          }
         })
         .catch(() => { });
     }
@@ -232,6 +243,7 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
         activePage="call-intelligence"
         activeTab="Call Intelligence"
         user={user}
+      authToken={authToken}
         isOverlay={true}
         onNavigate={(view, tab) => {
           setIsSidebarOpen(false);

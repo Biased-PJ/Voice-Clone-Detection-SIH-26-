@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from app.database import db
@@ -18,7 +18,7 @@ async def start_call(payload: CallStartRequest, current_user=Depends(get_current
         "user_id": current_user["user_id"],
         "language": payload.language,
         "status": "active",
-        "started_at": datetime.utcnow().isoformat(),
+        "started_at": datetime.now(timezone.utc).isoformat(),
         "ended_at": None,
     }
     await db["call_sessions"].insert_one(session)
@@ -45,12 +45,15 @@ async def end_call(session_id: str, current_user=Depends(get_current_user)):
     if existing["user_id"] != current_user["user_id"] and current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Not your session")
 
-    ended_at = datetime.utcnow()
+    ended_at = datetime.now(timezone.utc)
     started_at = existing.get("started_at")
     duration_seconds = None
     if started_at:
         try:
-            duration_seconds = max(0, int((ended_at - datetime.fromisoformat(started_at)).total_seconds()))
+            started_dt = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            if started_dt.tzinfo is None:
+                started_dt = started_dt.replace(tzinfo=timezone.utc)
+            duration_seconds = max(0, int((ended_at - started_dt).total_seconds()))
         except (TypeError, ValueError):
             duration_seconds = None
 
@@ -86,6 +89,7 @@ async def list_calls(current_user=Depends(get_current_user)):
         }
         session_filter = {"user_id": current_user["user_id"]}
 
+    total_analysis_results = await db["analysis_results"].count_documents(analysis_filter)
     analysis_cursor = db["analysis_results"].find(analysis_filter).sort("created_at", -1)
     analysis_results = await analysis_cursor.to_list(length=500)
 
@@ -103,5 +107,6 @@ async def list_calls(current_user=Depends(get_current_user)):
     return {
         "analysis_results": analysis_results,
         "call_sessions": call_sessions,
+        "total_analysis_results": total_analysis_results,
         "demo_calls": demo_calls,
     }

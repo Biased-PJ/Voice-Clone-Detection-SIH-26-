@@ -61,6 +61,17 @@ interface DashboardProps {
   initialTab?: string;
 }
 
+const formatIndiaDateTime = (value: any) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata', hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }) + ' IST';
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({
   user,
   authToken,
@@ -73,7 +84,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   initialTab,
 }) => {
   const [activeTab, setActiveTab] = useState<string>(initialTab || 'Overview');
-  const [selectedCallIdForIntel, setSelectedCallIdForIntel] = useState<string>('CALL-2289');
+  const [selectedCallIdForIntel, setSelectedCallIdForIntel] = useState<string>('');
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'ALL' | 'Safe' | 'Suspicious' | 'Critical'>('ALL');
   const [isLiveStreaming, setIsLiveStreaming] = useState(true);
@@ -300,14 +311,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 : 'Safe';
           return {
             id: r.session_id || r._id || `analysis-${r.created_at}`,
-            timestamp: r.created_at ? new Date(r.created_at).toLocaleTimeString('en-US', { hour12: false }) + ' UTC' : '',
-            duration: r.duration ? `${Math.floor(r.duration / 60)}:${String(Math.floor(r.duration % 60)).padStart(2, '0')}` : '01:45',
+            timestamp: formatIndiaDateTime(r.created_at),
+            duration: (() => { const d = Number(r.duration_seconds ?? r.duration ?? 0); return d > 0 ? `${Math.floor(d / 60)}:${String(Math.floor(d % 60)).padStart(2, '0')}` : '—'; })(),
             carrier: r.threat_location?.city ? `${r.threat_location.city} Telecom Gateway` : 'Uploaded recording',
             caller: r.file_name || 'Inbound voice stream',
             status,
             score,
             aiVoiceScore: Math.round((r.synthetic_probability ?? 0) * 100),
-            scamIntentScore: score,
+            scamIntentScore: Math.round(Number(r.scam_score ?? 0)),
             aiFamily: r.risk_level ? `Risk level: ${r.risk_level}` : 'Unclassified',
             jitter: `${(0.8 + ((r.synthetic_probability ?? 0) * 8.2)).toFixed(1)} ms`,
             shimmer: `${(1.2 + ((r.synthetic_probability ?? 0) * 13.0)).toFixed(1)}%`,
@@ -455,7 +466,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return (
       <LiveAnalysisPage
         user={user}
-        authToken={authToken}
+      authToken={authToken}
         onBackToDashboard={() => setActiveTab('Overview')}
         onViewLanding={onViewLanding}
         onNavigate={(view, tab) => {
@@ -477,7 +488,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return (
       <RecordedAnalysisPage
         user={user}
-        authToken={authToken}
+      authToken={authToken}
         onBackToDashboard={() => setActiveTab('Overview')}
         onViewLanding={onViewLanding}
         onNavigate={(view, tab) => {
@@ -499,7 +510,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return (
       <CallIntelligencePage
         user={user}
-        authToken={authToken}
+      authToken={authToken}
         initialCallId={selectedCallIdForIntel}
         onBackToDashboard={() => setActiveTab('Overview')}
         onViewLanding={onViewLanding}
@@ -546,6 +557,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           }
         }}
         user={user}
+      authToken={authToken}
         onSignOut={onSignOut}
         isOverlay={true}
       />

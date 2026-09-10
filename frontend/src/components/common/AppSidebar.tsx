@@ -12,6 +12,7 @@ import {
   History,
 } from 'lucide-react';
 import { UserProfile } from '../../types';
+import { getMyCalls } from '../../utils/api';
 
 export interface AppSidebarProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export interface AppSidebarProps {
     tab?: string
   ) => void;
   user: UserProfile | null;
+  authToken?: string | null;
   onSignOut?: () => void;
   onOpenAuth?: (mode: 'login' | 'signup') => void;
   isOverlay?: boolean;
@@ -35,10 +37,26 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   activeTab = 'Overview',
   onNavigate,
   user,
+  authToken,
   onSignOut,
   onOpenAuth,
   isOverlay = true,
 }) => {
+  const [callCount, setCallCount] = React.useState(0);
+
+  useEffect(() => {
+    if (!authToken) { setCallCount(0); return; }
+    let cancelled = false;
+    const loadCount = () => {
+      getMyCalls(authToken).then((data) => {
+        if (!cancelled) setCallCount(Number(data.total_analysis_results ?? (data.analysis_results || []).length));
+      }).catch(() => { if (!cancelled) setCallCount(0); });
+    };
+    loadCount();
+    window.addEventListener('voiceguardian-history-updated', loadCount);
+    return () => { cancelled = true; window.removeEventListener('voiceguardian-history-updated', loadCount); };
+  }, [authToken]);
+
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -104,7 +122,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       id: 'call-history',
       name: 'Call History',
       icon: History,
-      count: '1,284',
+      count: callCount.toLocaleString(),
       action: () => onNavigate('dashboard', 'History'),
       isActive: activePage === 'dashboard' && activeTab === 'History',
     },

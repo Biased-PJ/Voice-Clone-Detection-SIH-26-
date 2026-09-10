@@ -38,6 +38,19 @@ async function handle<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+
+export interface GoogleAuthStatus {
+  configured: boolean;
+  client_configured: boolean;
+  backend_configured: boolean;
+  package_available: boolean;
+}
+
+export async function getGoogleAuthStatus(): Promise<GoogleAuthStatus> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/auth/google/status`);
+  return handle<GoogleAuthStatus>(res);
+}
+
 export async function loginWithGoogle(credential: string): Promise<{ access_token: string }> {
   const res = await fetch(`${API_BASE_URL}/api/v1/auth/google`, {
     method: 'POST',
@@ -126,6 +139,8 @@ export async function analyzeAudio(
 export interface CallsHistoryResponse {
   analysis_results: Array<Record<string, any>>;
   call_sessions: Array<Record<string, any>>;
+  demo_calls?: Array<Record<string, any>>;
+  total_analysis_results?: number;
 }
 
 export async function getMyCalls(token: string): Promise<CallsHistoryResponse> {

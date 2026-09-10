@@ -302,39 +302,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
     return () => clearInterval(interval);
   }, [isCallActive]);
 
-  // Backend call-session lifecycle — real Mongo record via /api/v1/calls/start
-  // and /end, independent of which scenario is being viewed.
-  useEffect(() => {
-    if (!authToken) return;
-
-    if (isCallActive && !backendSessionIdRef.current) {
-      startCallSession('en', authToken)
-        .then((session: any) => {
-          backendSessionIdRef.current = session?.session_id || null;
-        })
-        .catch(() => {
-          // Non-fatal — the live view still works without a persisted session.
-        });
-    }
-
-    if (!isCallActive && backendSessionIdRef.current) {
-      const sid = backendSessionIdRef.current;
-      backendSessionIdRef.current = null;
-      endCallSession(sid, authToken)
-        .then(() => window.dispatchEvent(new Event('voiceguardian-history-updated')))
-        .catch(() => { });
-    }
-
-    return () => {
-      if (backendSessionIdRef.current && authToken) {
-        const sid = backendSessionIdRef.current;
-        backendSessionIdRef.current = null;
-        endCallSession(sid, authToken).catch(() => { });
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCallActive, authToken]);
-
   // Handle hardware mic
   useEffect(() => {
     if (currentScenario === 'mic' && isCallActive) {
@@ -520,7 +487,15 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
           setFinalResult(finalMessage);
           setFinalConclusion(finalMessage.conclusion || 'Call analysis complete.');
           applyBackendResult(finalMessage);
-          window.dispatchEvent(new Event('voiceguardian-history-updated'));
+          if (backendSessionIdRef.current && authToken) {
+            const sid = backendSessionIdRef.current;
+            void endCallSession(sid, authToken).finally(() => {
+              backendSessionIdRef.current = null;
+              window.dispatchEvent(new Event('voiceguardian-history-updated'));
+            });
+          } else {
+            window.dispatchEvent(new Event('voiceguardian-history-updated'));
+          }
           setMicStatus('idle');
           return;
         }
@@ -617,7 +592,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
         if (recorder.state !== 'inactive') recorder.stop();
         await recordingDone;
 
-        if (!micLoopActiveRef.current || socket.readyState !== WebSocket.OPEN) break;
+        if (socket.readyState !== WebSocket.OPEN) break;
 
         const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
         if (blob.size < 1500) continue;
@@ -670,6 +645,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
       setFinalConclusion(null);
       setFinalResult(null);
       setMicLiveResult(null);
+      backendSessionIdRef.current = null;
       if (!authToken) {
         setMicStatus('error');
         setMicError('Please log in before starting live analysis.');
@@ -733,12 +709,12 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
               try { socket.close(1000, 'final analysis complete'); } catch { }
               liveSocketRef.current = null;
             }
-          }, 20000);
+          }, 30000);
         } catch {
           try { socket.close(1000, 'analysis stopped'); } catch { }
           liveSocketRef.current = null;
         }
-      }, 500);
+      }, 1200);
     }
     // IMPORTANT: stopMic can be called twice by React effects. If finalization
     // was already requested, do not close the socket; wait for the final result.
@@ -861,6 +837,19 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
               </div>
             </div>
 
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className={`rounded-xl border p-4 ${finalResult.ai_voice_percent >= 70 ? 'border-rose-500/40 bg-rose-500/10' : 'border-emerald-500/30 bg-emerald-500/10'}`}>
+                <p className="text-[10px] font-mono uppercase text-slate-500">Voice authenticity</p>
+                <p className="mt-1 text-lg font-extrabold text-white">{finalResult.ai_voice_percent >= 70 ? 'CLONED / SYNTHETIC LIKELY' : 'NOT STRONGLY CLONED'}</p>
+                <p className="mt-1 text-xs text-slate-400">Based on the acoustic AI-voice probability.</p>
+              </div>
+              <div className={`rounded-xl border p-4 ${finalResult.scam_score >= 70 ? 'border-rose-500/40 bg-rose-500/10' : 'border-emerald-500/30 bg-emerald-500/10'}`}>
+                <p className="text-[10px] font-mono uppercase text-slate-500">Conversation safety</p>
+                <p className="mt-1 text-lg font-extrabold text-white">{finalResult.scam_score >= 70 ? 'SCAM LIKELY' : 'NO STRONG SCAM SIGNAL'}</p>
+                <p className="mt-1 text-xs text-slate-400">Based on the accumulated transcript and scam indicators.</p>
+              </div>
+            </div>
+
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
                 <p className="text-[10px] font-mono uppercase text-slate-500">AI / Clone</p>
@@ -913,6 +902,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
           }
         }}
         user={user}
+      authToken={authToken}
         isOverlay={true}
       />
 
