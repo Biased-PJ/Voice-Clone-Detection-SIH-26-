@@ -2,7 +2,8 @@
 // The JWT is passed in explicitly by callers — it lives only in React state
 // (see App.tsx), never in localStorage, per the auth design.
 export const API_BASE_URL = (
-  (import.meta as any).env?.VITE_API_BASE_URL || 'https://voice-clone-detection-sih-26.onrender.com'
+  (import.meta as any).env?.VITE_API_BASE_URL ||
+  'https://voice-clone-detection-sih-26.onrender.com'
 ).replace(/\/+$/, '');
 
 export interface AnalyzeResponse {
@@ -14,6 +15,8 @@ export interface AnalyzeResponse {
   speaker_match_probability: number;
   risk_factors: string[];
   suggestion: string;
+  scam_score: number;
+  ai_voice_percent: number;
   threat_location?: { city: string; latitude: number; longitude: number };
 }
 
@@ -154,4 +157,30 @@ export async function endCallSession(sessionId: string, token: string) {
     headers: authHeaders(token),
   });
   return handle(res);
+}
+/**
+ * Open the authenticated WebSocket used by the Live Analysis page.
+ * HTTP(S) API URLs are converted to WS(S) automatically.
+ */
+export function createLiveAnalysisSocket(
+  sessionId: string,
+  language: string,
+  token?: string | null,
+): WebSocket {
+  const wsBase = API_BASE_URL
+    .replace(/^http:/, 'ws:')
+    .replace(/^https:/, 'wss:');
+
+  const params = new URLSearchParams({
+    session_id: sessionId,
+    language,
+  });
+
+  if (token) {
+    params.set('token', token);
+  }
+
+  return new WebSocket(
+    `${wsBase}/api/v1/analyze/live?${params.toString()}`
+  );
 }

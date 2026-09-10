@@ -21,7 +21,7 @@ import { UserProfile } from '../types';
 import { PageBackground } from './backgrounds/PageBackground';
 import { CallerPitchWaveform } from './live-analysis/CallerPitchWaveform';
 import { AppSidebar } from './common/AppSidebar';
-import { startCallSession, endCallSession, analyzeAudio } from '../utils/api';
+import { startCallSession, endCallSession, createLiveAnalysisSocket, AnalyzeResponse } from '../utils/api';
 import { Footer } from './Footer';
 
 interface LiveAnalysisPageProps {
@@ -34,6 +34,18 @@ interface LiveAnalysisPageProps {
 }
 
 type CallScenario = 'elevenlabs' | 'rvc' | 'xtts' | 'organic-human' | 'mic';
+
+type BrowserSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: any) => void) | null;
+  onerror: ((event: any) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
 
 interface ScenarioData {
   id: CallScenario;
@@ -254,6 +266,8 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
   const [micError, setMicError] = useState<string | null>(null);
   const [thresholdAlert, setThresholdAlert] = useState(false);
   const [cloneAlarmScore, setCloneAlarmScore] = useState<number | null>(null);
+  const [finalConclusion, setFinalConclusion] = useState<string | null>(null);
+  const [finalResult, setFinalResult] = useState<AnalyzeResponse | null>(null);
   const alarmArmedRef = useRef(true);
   const cloneAlarmThreshold = 80;
 
@@ -262,8 +276,13 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const liveSocketRef = useRef<WebSocket | null>(null);
   const micLoopActiveRef = useRef(false);
   const backendSessionIdRef = useRef<string | null>(null);
+  const sessionStartPromiseRef = useRef<Promise<string | null> | null>(null);
+  const finalizeSentRef = useRef(false);
+  const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const finalizeTimerRef = useRef<number | null>(null);
 
   const scenario = isCallActive && currentScenario === 'mic' && micLiveResult ? micLiveResult : IDLE_SCENARIO;
   const isCritical = scenario.aiVoiceScore >= 70 || scenario.scamIntentScore >= 70;
@@ -326,9 +345,9 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
     return () => stopMic();
   }, [currentScenario, isCallActive]);
 
-  const applyBackendResult = (backendResult: Awaited<ReturnType<typeof analyzeAudio>>) => {
+  const applyBackendResult = (backendResult: AnalyzeResponse) => {
     const aiScore = Math.round(backendResult.synthetic_probability * 100);
-    const scamScore = backendResult.risk_score;
+    const scamScore = Number.isFinite(backendResult.scam_score) ? backendResult.scam_score : backendResult.risk_score;
     const isCritical = backendResult.risk_level === 'CRITICAL' || backendResult.risk_level === 'HIGH';
 
     const audioAlerts = localStorage.getItem('voiceguardian_audio_alerts') !== 'false';
@@ -372,7 +391,15 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
       setThresholdAlert(false);
       setCloneAlarmScore(null);
     }
-    window.dispatchEvent(new Event('voiceguardian-history-updated'));
+    const liveAdvice = scamScore >= 80
+      ? '🚨 Do NOT share OTPs, passwords, PINs, or transfer money. End the call and verify the caller through an official channel.'
+      : scamScore >= 60
+        ? '⚠️ Do not make payments or share sensitive information. Independently verify the caller before taking action.'
+        : aiScore >= 70
+          ? '⚠️ The voice shows a high synthetic probability. Verify the caller using a trusted channel before trusting requests.'
+          : backendResult.risk_level === 'HIGH' || backendResult.risk_level === 'CRITICAL'
+            ? '⚠️ Suspicious activity detected. Slow down and verify the caller before sharing information or taking financial action.'
+            : '🟢 No strong threat detected yet. Continue normal verification and never share sensitive credentials.';
 
     setMicLiveResult({
       id: 'mic',
@@ -387,8 +414,8 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
         {
           id: 'mic-sug-live',
           level: isCritical ? 'critical' : scamScore >= 40 ? 'warning' : 'safe',
-          title: `Risk level: ${backendResult.risk_level}`,
-          advice: backendResult.suggestion,
+          title: scamScore >= 80 ? 'STOP — High Scam Risk' : scamScore >= 60 ? 'Verify Before Acting' : aiScore >= 70 ? 'Possible Cloned Voice' : `Risk level: ${backendResult.risk_level}`,
+          advice: liveAdvice,
         },
         ...backendResult.risk_factors.slice(0, 2).map((f, i) => ({
           id: `mic-sug-factor-${i}`,
@@ -400,68 +427,272 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
     });
   };
 
-  // Records ~6s clips in a loop and sends each one to the real backend for
-  // scoring, so "live" mic mode isn't just a static waveform with fake numbers.
-  const runMicAnalysisLoop = async (stream: MediaStream) => {
+  const startBrowserTranscription = (socket: WebSocket) => {
+    const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) return false;
+
+    try {
+      const recognition = new SpeechRecognitionCtor() as BrowserSpeechRecognition;
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = 'en-IN';
+      recognition.onresult = (event: any) => {
+        let text = '';
+        for (let i = event.resultIndex || 0; i < event.results.length; i += 1) {
+          if (event.results[i].isFinal) text += `${event.results[i][0]?.transcript || ''} `;
+        }
+        text = text.trim();
+        if (text && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'transcript', text }));
+        }
+      };
+      recognition.onerror = (event: any) => {
+        if (event?.error !== 'aborted' && micLoopActiveRef.current) {
+          setMicError(
+            `Browser speech recognition: ${event?.error || 'unavailable'}. Falling back to backend transcription.`
+          );
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'transcription_mode', mode: 'whisper' }));
+          }
+        }
+      };
+      recognition.onend = () => {
+        if (micLoopActiveRef.current && socket.readyState === WebSocket.OPEN) {
+          try { recognition.start(); } catch { /* already restarting */ }
+        }
+      };
+      recognition.start();
+      speechRecognitionRef.current = recognition;
+      return true;
+    } catch {
+      speechRecognitionRef.current = null;
+      return false;
+    }
+  };
+
+  const stopBrowserTranscription = () => {
+    const recognition = speechRecognitionRef.current;
+    speechRecognitionRef.current = null;
+    if (recognition) {
+      try { recognition.stop(); } catch { /* already stopped */ }
+    }
+  };
+
+  // Live analysis uses a persistent WebSocket. Each MediaRecorder segment is a
+  // complete, independently decodable audio file, so the backend can score it
+  // immediately without waiting for the call to finish.
+  const runMicAnalysisLoop = async (stream: MediaStream, sessionId: string) => {
     micLoopActiveRef.current = true;
 
-    while (micLoopActiveRef.current) {
-      const chunks: BlobPart[] = [];
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
-      let recorder: MediaRecorder;
-      try {
-        recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      } catch {
-        setMicStatus('error');
-        setMicError('This browser cannot record microphone audio for analysis.');
+    const mimeCandidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/ogg',
+    ];
+    const mimeType = mimeCandidates.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+
+    const socket = createLiveAnalysisSocket(sessionId, 'en', authToken);
+    liveSocketRef.current = socket;
+
+    socket.binaryType = 'arraybuffer';
+
+    socket.onopen = () => {
+      if (!micLoopActiveRef.current) {
+        socket.close(1000, 'analysis stopped');
         return;
       }
+      setMicStatus('listening');
+      setMicError(null);
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const result = JSON.parse(event.data) as AnalyzeResponse & { type?: string; error?: string };
+        if (result.type === 'error') {
+          setMicStatus('error');
+          setMicError(result.error || 'Live analysis failed.');
+          return;
+        }
+        if (result.type === 'final') {
+          const finalMessage = result as AnalyzeResponse & { conclusion?: string };
+          finalizeSentRef.current = true;
+          setFinalResult(finalMessage);
+          setFinalConclusion(finalMessage.conclusion || 'Call analysis complete.');
+          applyBackendResult(finalMessage);
+          window.dispatchEvent(new Event('voiceguardian-history-updated'));
+          setMicStatus('idle');
+          return;
+        }
+        if (result.type === 'analysis' || result.synthetic_probability !== undefined) {
+          applyBackendResult(result);
+          setMicStatus('listening');
+        }
+      } catch {
+        setMicStatus('error');
+        setMicError('The live analysis service returned an invalid response.');
+      }
+    };
+
+    socket.onerror = () => {
+      if (micLoopActiveRef.current) {
+        setMicStatus('error');
+        setMicError('Could not connect to the live analysis backend.');
+      }
+    };
+
+    socket.onclose = (event) => {
+      liveSocketRef.current = null;
+      if (micLoopActiveRef.current && event.code !== 1000) {
+        setMicStatus('error');
+        setMicError(`Live analysis connection closed (${event.code}).`);
+      }
+    };
+
+    // Wait for the WebSocket before recording so the first chunk cannot be lost.
+    try {
+      await new Promise<void>((resolve, reject) => {
+        if (socket.readyState === WebSocket.OPEN) {
+          resolve();
+          return;
+        }
+        const timeout = window.setTimeout(() => reject(new Error('Live analysis connection timed out.')), 10000);
+        const previousOpen = socket.onopen;
+        socket.onopen = (event) => {
+          window.clearTimeout(timeout);
+          previousOpen?.call(socket, event);
+          resolve();
+        };
+        const previousError = socket.onerror;
+        socket.onerror = (event) => {
+          window.clearTimeout(timeout);
+          previousError?.call(socket, event);
+          reject(new Error('Live analysis WebSocket connection failed.'));
+        };
+      });
+    } catch (error: any) {
+      if (micLoopActiveRef.current) {
+        setMicStatus('error');
+        setMicError(error?.message || 'Could not connect to the live analysis backend.');
+      }
+      socket.close();
+      return;
+    }
+
+    // Chrome/Edge browser speech recognition gives us a live transcript without
+    // requiring a Whisper model download. Whisper remains the backend fallback.
+    const browserTranscriptEnabled = startBrowserTranscription(socket);
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'transcription_mode', mode: browserTranscriptEnabled ? 'browser' : 'whisper' }));
+    }
+
+    while (micLoopActiveRef.current && socket.readyState === WebSocket.OPEN) {
+      let recorder: MediaRecorder;
+      try {
+        recorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
+      } catch {
+        setMicStatus('error');
+        setMicError('This browser cannot record microphone audio for live analysis.');
+        break;
+      }
+
       mediaRecorderRef.current = recorder;
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
+      const chunks: BlobPart[] = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunks.push(event.data);
       };
 
       const recordingDone = new Promise<void>((resolve) => {
         recorder.onstop = () => resolve();
       });
 
-      setMicStatus('listening');
-      recorder.start();
-      await new Promise((r) => setTimeout(r, 6000));
-      if (!micLoopActiveRef.current) {
-        recorder.stop();
-        break;
-      }
-      recorder.stop();
-      await recordingDone;
-
-      if (!micLoopActiveRef.current) break;
-
-      const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
-      if (blob.size < 2000) continue; // essentially silence — skip the round trip
-
       try {
+        setMicStatus('listening');
+        recorder.start();
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+
+        if (recorder.state !== 'inactive') recorder.stop();
+        await recordingDone;
+
+        if (!micLoopActiveRef.current || socket.readyState !== WebSocket.OPEN) break;
+
+        const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
+        if (blob.size < 1500) continue;
+
         setMicStatus('analyzing');
-        const file = new File([blob], `live-${Date.now()}.webm`, { type: blob.type });
-        const result = await analyzeAudio(file, `live-${Date.now()}`, 'en', authToken);
-        if (micLoopActiveRef.current) applyBackendResult(result);
-        setMicError(null);
-      } catch (err: any) {
-        setMicError(err?.message || 'Could not reach the analysis backend.');
-        setMicStatus('error');
+        socket.send(blob);
+      } catch (error: any) {
+        if (micLoopActiveRef.current) {
+          setMicStatus('error');
+          setMicError(error?.message || 'Could not send audio to the live analysis backend.');
+        }
+        break;
+      } finally {
+        if (mediaRecorderRef.current === recorder) mediaRecorderRef.current = null;
       }
     }
+
+    // stopMic() owns the socket shutdown so it can request one final aggregate
+    // analysis before closing the connection.
+    if (micLoopActiveRef.current && socket.readyState === WebSocket.OPEN) {
+      socket.close(1000, 'analysis loop ended');
+    }
+    if (micLoopActiveRef.current) {
+      liveSocketRef.current = null;
+    }
+  };
+
+  const ensureBackendSession = async (): Promise<string | null> => {
+    if (backendSessionIdRef.current) return backendSessionIdRef.current;
+    if (!authToken) throw new Error('You must be logged in to use live analysis.');
+
+    if (!sessionStartPromiseRef.current) {
+      sessionStartPromiseRef.current = startCallSession('en', authToken)
+        .then((session: any) => {
+          const id = session?.session_id || null;
+          backendSessionIdRef.current = id;
+          return id;
+        })
+        .finally(() => {
+          sessionStartPromiseRef.current = null;
+        });
+    }
+
+    return sessionStartPromiseRef.current;
   };
 
   const startMic = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      finalizeSentRef.current = false;
+      setFinalConclusion(null);
+      setFinalResult(null);
+      setMicLiveResult(null);
+      if (!authToken) {
+        setMicStatus('error');
+        setMicError('Please log in before starting live analysis.');
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       mediaStreamRef.current = stream;
+
       const AudioCtx =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = new AudioCtx();
       audioContextRef.current = ctx;
+      if (ctx.state === 'suspended') await ctx.resume();
+
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 512;
@@ -469,19 +700,50 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
       analyserRef.current = analyser;
       setMicError(null);
 
-      runMicAnalysisLoop(stream);
-    } catch {
+      const sessionId = await ensureBackendSession();
+      if (!sessionId) throw new Error('Could not create a live call session.');
+
+      void runMicAnalysisLoop(stream, sessionId);
+    } catch (error: any) {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+      }
       setMicStatus('error');
-      setMicError('Microphone access was denied or unavailable.');
+      setMicError(error?.message || 'Microphone access was denied or unavailable.');
     }
   };
 
   const stopMic = () => {
     micLoopActiveRef.current = false;
+    stopBrowserTranscription();
+
+    const socket = liveSocketRef.current;
+    if (socket && socket.readyState === WebSocket.OPEN && !finalizeSentRef.current) {
+      // Let SpeechRecognition deliver any final phrase before the aggregate.
+      if (finalizeTimerRef.current) window.clearTimeout(finalizeTimerRef.current);
+      finalizeTimerRef.current = window.setTimeout(() => {
+        if (socket.readyState !== WebSocket.OPEN || finalizeSentRef.current) return;
+        try {
+          finalizeSentRef.current = true;
+          setMicStatus('analyzing');
+          socket.send(JSON.stringify({ type: 'finalize' }));
+          finalizeTimerRef.current = window.setTimeout(() => {
+            if (liveSocketRef.current === socket) {
+              try { socket.close(1000, 'final analysis complete'); } catch { }
+              liveSocketRef.current = null;
+            }
+          }, 20000);
+        } catch {
+          try { socket.close(1000, 'analysis stopped'); } catch { }
+          liveSocketRef.current = null;
+        }
+      }, 500);
+    }
+    // IMPORTANT: stopMic can be called twice by React effects. If finalization
+    // was already requested, do not close the socket; wait for the final result.
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch { }
+      try { mediaRecorderRef.current.stop(); } catch { }
     }
     mediaRecorderRef.current = null;
     if (mediaStreamRef.current) {
@@ -493,8 +755,9 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
       audioContextRef.current = null;
     }
     analyserRef.current = null;
-    setMicStatus('idle');
-    setMicLiveResult(null);
+    if (!finalizeSentRef.current) setMicStatus('idle');
+    // Keep the last live result visible after the call ends so the final
+    // conclusion modal can summarize the completed call. A new call clears it.
     setThresholdAlert(false);
     setCloneAlarmScore(null);
     alarmArmedRef.current = true;
@@ -510,6 +773,34 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const downloadFinalReport = () => {
+    if (!finalResult) return;
+    const report = [
+      'VOICEGUARDIAN — LIVE CALL ANALYSIS REPORT',
+      '=========================================',
+      `Conclusion: ${finalConclusion || 'Call analysis complete.'}`,
+      `Session ID: ${finalResult.session_id}`,
+      `Risk level: ${finalResult.risk_level}`,
+      `Overall risk: ${finalResult.risk_score}/100`,
+      `AI / Clone probability: ${Math.round(finalResult.ai_voice_percent)}%`,
+      `Scam likelihood: ${finalResult.scam_score}%`,
+      `Suggestion: ${finalResult.suggestion}`,
+      `Risk factors: ${(finalResult.risk_factors || []).join('; ') || 'None'}`,
+      '',
+      'Transcript:',
+      (finalResult as any).transcript || 'Transcript unavailable',
+    ].join('\n');
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `voiceguardian-call-report-${finalResult.session_id}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -551,6 +842,56 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
               <button type="button" onClick={() => setIsCallActive(false)} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-500">End call</button>
               <button type="button" onClick={() => { setThresholdAlert(false); setCloneAlarmScore(null); }} className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/20">Dismiss alert</button>
               <button type="button" onClick={() => handleCopyAdvice('clone-alarm', `VoiceGuardian clone probability: ${cloneAlarmScore ?? 81}%`)} className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800">Copy incident</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {finalConclusion && finalResult && !isCallActive && currentScenario === 'mic' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="final-analysis-title">
+          <div className="w-full max-w-xl rounded-2xl border border-teal-500/40 bg-[#0a1117] p-6 shadow-[0_0_60px_rgba(45,212,191,0.18)]">
+            <div className="flex items-start gap-4">
+              <div className={`rounded-full p-3 ${finalResult.risk_level === 'CRITICAL' || finalResult.risk_level === 'HIGH' ? 'bg-rose-500/15 text-rose-300' : finalResult.risk_level === 'MEDIUM' ? 'bg-amber-500/15 text-amber-300' : 'bg-teal-500/15 text-teal-300'}`}>
+                {finalResult.risk_level === 'CRITICAL' || finalResult.risk_level === 'HIGH' ? <ShieldAlert className="h-7 w-7" /> : <ShieldCheck className="h-7 w-7" />}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-teal-300">Final call analysis</p>
+                <h2 id="final-analysis-title" className="mt-1 text-2xl font-bold text-white">{finalConclusion}</h2>
+                <p className="mt-2 text-sm text-slate-400">The call has ended. This conclusion combines the voice-clone model with the accumulated conversational scam analysis.</p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                <p className="text-[10px] font-mono uppercase text-slate-500">AI / Clone</p>
+                <p className="mt-1 text-2xl font-extrabold text-rose-300">{Math.round(finalResult.ai_voice_percent)}%</p>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                <p className="text-[10px] font-mono uppercase text-slate-500">Scam likelihood</p>
+                <p className="mt-1 text-2xl font-extrabold text-amber-300">{finalResult.scam_score}%</p>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                <p className="text-[10px] font-mono uppercase text-slate-500">Overall risk</p>
+                <p className="mt-1 text-2xl font-extrabold text-white">{finalResult.risk_score}/100</p>
+              </div>
+            </div>
+
+            {finalResult.risk_factors.length > 0 && (
+              <div className="mt-5 rounded-xl border border-slate-800 bg-[#06090e] p-4">
+                <p className="text-xs font-bold text-slate-200">Why it was flagged</p>
+                <ul className="mt-2 space-y-1.5">
+                  {finalResult.risk_factors.map((factor) => <li key={factor} className="text-xs text-slate-400">• {factor}</li>)}
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={downloadFinalReport} className="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2.5 text-xs font-mono font-bold text-teal-300 hover:bg-teal-500/20">Download report</button>
+              <button type="button" onClick={() => handleCopyAdvice('final-analysis', `${finalConclusion} | AI/Clone: ${Math.round(finalResult.ai_voice_percent)}% | Scam: ${finalResult.scam_score}% | Risk: ${finalResult.risk_score}/100`)} className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-xs font-mono font-bold text-slate-200 hover:bg-slate-800">
+                {copiedId === 'final-analysis' ? 'Copied' : 'Copy conclusion'}
+              </button>
+              <button type="button" onClick={() => { setFinalConclusion(null); setFinalResult(null); }} className="rounded-xl bg-teal-500 px-5 py-2.5 text-xs font-mono font-bold text-slate-950 hover:bg-teal-400">Close
+              </button>
             </div>
           </div>
         </div>
@@ -830,7 +1171,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
                   : micStatus === 'analyzing'
                     ? 'Sending audio segment to the analysis backend…'
                     : micStatus === 'listening'
-                      ? 'Listening — recording ~6s segments for real-time scoring'
+                      ? 'Listening — streaming 2s audio segments for continuous scoring'
                       : 'Microphone idle'}
               </span>
             </div>
