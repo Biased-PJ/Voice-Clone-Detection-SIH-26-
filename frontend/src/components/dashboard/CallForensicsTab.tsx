@@ -69,7 +69,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
   const currentOscillatorsRef = useRef<OscillatorNode[]>([]);
   const animationFrameRef = useRef<number | null>(null);
 
-  // Filter calls list
   const filteredCalls = calls.filter((c) => {
     const matchesFilter = statusFilter === 'ALL' || c.status === statusFilter;
     const matchesSearch =
@@ -89,7 +88,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
   const aiScore = selectedCall?.aiVoiceScore ?? (isCritical ? 98 : isSuspicious ? 72 : 4);
   const scamScore = selectedCall?.scamIntentScore ?? (isCritical ? 96 : isSuspicious ? 68 : 5);
 
-  // Audio synthesis for realistic playback
   const stopAudio = () => {
     currentOscillatorsRef.current.forEach((osc) => {
       try {
@@ -179,7 +177,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
     return () => stopAudio();
   }, []);
 
-  // Animated spectrum oscilloscope canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -194,7 +191,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
       const height = canvas.height;
       ctx.clearRect(0, 0, width, height);
 
-      // Background grid lines
       ctx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
       ctx.lineWidth = 1;
       const gridSpacing = 24;
@@ -215,7 +211,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
       const numBars = 48;
       const barWidth = (width - (numBars - 1) * 3) / numBars;
 
-      // Draw frequency spectrum bars
       for (let i = 0; i < numBars; i++) {
         const x = i * (barWidth + 3);
         const norm = i / numBars;
@@ -231,7 +226,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
 
         const barHeight = amp * (height * 0.75);
 
-        // Color based on threat level
         let fill = 'rgba(45, 212, 191, 0.85)';
         if (isCritical) {
           fill = norm > 0.6 ? 'rgba(244, 63, 94, 0.9)' : 'rgba(251, 146, 60, 0.85)';
@@ -243,7 +237,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
         ctx.fillRect(x, centerY - barHeight / 2, barWidth, barHeight);
       }
 
-      // Draw continuous pitch contour line
       ctx.beginPath();
       ctx.strokeStyle = isCritical ? '#fb7185' : isSuspicious ? '#fcd34d' : '#2dd4bf';
       ctx.lineWidth = 2;
@@ -349,7 +342,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
     downloadAnchor.remove();
   };
 
-  // Get actionable protocol suggestions
   const getSuggestions = (): CallSuggestion[] => {
     if (!selectedCall) return [];
     if (isCritical) {
@@ -426,7 +418,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
     <div className="min-h-screen bg-[#05080c] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] relative overflow-x-hidden selection:bg-teal-500/30 selection:text-teal-200">
       <SoundWaveBackground />
 
-      {/* Universal App Sidebar */}
       <AppSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -448,7 +439,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
         isOverlay={true}
       />
 
-      {/* Background glowing blurs */}
       <div
         aria-hidden="true"
         className="pointer-events-none fixed -top-40 left-1/4 w-[700px] h-[700px] rounded-full bg-cyan-500/5 blur-[140px] z-0"
@@ -458,7 +448,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
         className="pointer-events-none fixed top-1/2 -right-40 w-[600px] h-[600px] rounded-full bg-teal-500/5 blur-[140px] z-0"
       />
 
-      {/* Header Navigation Bar */}
       <header className="sticky top-0 z-40 w-full bg-[#060a0e]/90 backdrop-blur-xl border-b border-slate-800/80 px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between transition-all">
         <div className="flex items-center gap-3 sm:gap-4">
           <button
@@ -529,9 +518,7 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
         </div>
       </header>
 
-      {/* Main Container */}
       <div className="relative z-10 flex-1 max-w-[1680px] w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
-        {/* Top Summary Bar */}
         <div className="p-4 sm:p-5 rounded-2xl bg-[#080d13]/90 border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.3)] backdrop-blur-md flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-6 text-xs font-mono">
             <div>
@@ -565,9 +552,7 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
           </div>
         </div>
 
-        {/* 2-Column Split Master/Detail View */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT COLUMN: Call Ingest Directory (5 Cols) */}
           <div className="lg:col-span-5 flex flex-col gap-4">
             <div className="p-4 sm:p-5 rounded-2xl bg-[#080d13] border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.25)] flex flex-col gap-3">
               <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
@@ -578,7 +563,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
                 <span className="text-[11px] font-mono text-slate-500">{filteredCalls.length} records</span>
               </div>
 
-              {/* Search Box */}
               <div className="relative">
                 <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -590,7 +574,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
                 />
               </div>
 
-              {/* Status Filter Buttons */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
                 {(['ALL', 'Critical', 'Suspicious', 'Safe'] as const).map((filter) => (
                   <button
@@ -608,7 +591,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
                 ))}
               </div>
 
-              {/* List of Calls */}
               <div className="space-y-2.5 mt-1 max-h-[620px] overflow-y-auto pr-1">
                 {filteredCalls.map((call) => {
                   const isSelected = selectedCall?.id === call.id;
@@ -687,11 +669,9 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Deep Forensic Workspace (7 Cols) */}
           <div className="lg:col-span-7 flex flex-col gap-5">
             {selectedCall && (
               <div className="p-5 sm:p-6 rounded-2xl bg-[#080d13] border border-slate-800/90 shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col gap-5">
-                {/* 1. Header with Call Meta & Fast Actions */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
                   <div className="flex items-center gap-3">
                     <div
@@ -759,9 +739,7 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
                   </div>
                 </div>
 
-                {/* 2. The Two Core Scores in 2 Columns */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* SCORE 1: AI VOICE SCORE */}
                   <div className="p-4 rounded-xl bg-[#05080c] border border-slate-800/80 flex flex-col justify-between">
                     <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
                       <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
@@ -824,7 +802,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
                     </p>
                   </div>
 
-                  {/* SCORE 2: SCAM INTENT SCORE */}
                   <div className="p-4 rounded-xl bg-[#05080c] border border-slate-800/80 flex flex-col justify-between">
                     <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
                       <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
@@ -888,7 +865,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
                   </div>
                 </div>
 
-                {/* 3. Acoustic Waveform & Spectral Oscilloscope */}
                 <div className="p-4 rounded-xl bg-[#05080c] border border-slate-800/80 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -941,7 +917,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Oscilloscope Canvas */}
                   <div className="w-full h-24 rounded-lg bg-[#040609] border border-slate-800/80 overflow-hidden relative">
                     <canvas
                       ref={canvasRef}
@@ -958,7 +933,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
                     </div>
                   </div>
 
-                  {/* 4 Biometric Telemetry Stat Chips */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-xs">
                     <div className="p-2 rounded-lg bg-[#091219] border border-slate-800/80">
                       <div className="text-[10px] text-slate-500 uppercase">Glottal Jitter</div>
@@ -994,7 +968,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
                   </div>
                 </div>
 
-                {/* 4. Forensic Telemetry Assessment & 5-Checkpoint Verification */}
                 <div className="p-4 rounded-xl bg-[#05080c] border border-slate-800/80 flex flex-col gap-3 font-mono">
                   <div className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
                     <span>5-Point Acoustic Biometrics Matrix</span>
@@ -1046,7 +1019,6 @@ export const CallForensicsTab: React.FC<CallForensicsTabProps> = ({
                   </div>
                 </div>
 
-                {/* 5. Suggestions & Recommended Protocol Section */}
                 <div className="pt-4 border-t border-slate-800/80 flex flex-col">
                   <div className="flex items-center justify-between pb-3">
                     <div className="flex items-center gap-2.5">

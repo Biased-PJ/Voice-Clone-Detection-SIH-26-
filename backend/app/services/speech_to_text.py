@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 _model = None
 _model_lock = threading.Lock()
 
-
 def _get_model():
     global _model
     if _model is not None:
@@ -23,13 +22,12 @@ def _get_model():
             return _model
         try:
             from faster_whisper import WhisperModel
-            # base is a good CPU compromise for a student/demo machine.
+
             _model = WhisperModel("base", device="cpu", compute_type="int8")
         except Exception as exc:
             logger.exception("faster-whisper model could not be loaded: %s", exc)
             return None
         return _model
-
 
 def _ffmpeg_audio(audio_bytes: bytes) -> tuple[np.ndarray, int]:
     """Decode any browser-supported audio container into 16-kHz mono PCM."""
@@ -80,29 +78,21 @@ def _ffmpeg_audio(audio_bytes: bytes) -> tuple[np.ndarray, int]:
 
     return data, int(sr)
 
-
 def _audio_is_speech_candidate(waveform: np.ndarray) -> bool:
     """Reject genuinely empty/silent browser chunks before asking Whisper."""
-    if waveform.size < 1600:  # <100 ms at 16 kHz
+    if waveform.size < 1600:
         return False
 
     rms = float(np.sqrt(np.mean(np.square(waveform), dtype=np.float64)))
     peak = float(np.max(np.abs(waveform))) if waveform.size else 0.0
 
-    # Browser microphones normally produce substantially more energy than this
-    # when someone is speaking. These conservative thresholds mainly prevent
-    # Whisper from hallucinating phrases on silence/noise.
     return rms >= 0.003 or peak >= 0.025
-
 
 def _clean_segment_text(text: str) -> str:
     text = " ".join((text or "").split()).strip()
     if not text:
         return ""
 
-    # Whisper can hallucinate a repeated filler phrase on a poor/silent chunk.
-    # Collapse exact consecutive repetition, but don't remove legitimate
-    # different words.
     words = text.split()
     cleaned: list[str] = []
     i = 0
@@ -122,7 +112,6 @@ def _clean_segment_text(text: str) -> str:
             i += 1
 
     return " ".join(cleaned).strip()
-
 
 def _transcribe_waveform(model, waveform: np.ndarray, language: str, live_chunk: bool = False) -> str:
     if waveform.size == 0 or not _audio_is_speech_candidate(waveform):
@@ -155,9 +144,6 @@ def _transcribe_waveform(model, waveform: np.ndarray, language: str, live_chunk:
             if not segment_text:
                 continue
 
-            # Reject low-confidence hallucinated segments, especially on short
-            # live windows. Keep the thresholds slightly more permissive for a
-            # final aggregate transcription.
             no_speech = float(getattr(segment, "no_speech_prob", 0.0) or 0.0)
             avg_logprob = float(getattr(segment, "avg_logprob", 0.0) or 0.0)
             compression = float(getattr(segment, "compression_ratio", 0.0) or 0.0)
@@ -174,10 +160,8 @@ def _transcribe_waveform(model, waveform: np.ndarray, language: str, live_chunk:
         text = " ".join(accepted).strip()
         return text or "[no speech detected]"
     except Exception:
-        # Let the caller return a controlled status marker instead of breaking
-        # the live WebSocket.
-        raise
 
+        raise
 
 def transcribe_audio(audio_bytes: bytes, language: str, live_chunk: bool = True) -> str:
     """Transcribe one audio window without allowing STT errors to break a call."""
@@ -194,7 +178,6 @@ def transcribe_audio(audio_bytes: bytes, language: str, live_chunk: bool = True)
     except Exception as exc:
         logger.warning("Transcription failed for live audio window: %s", exc)
         return "[transcription failed]"
-
 
 def transcribe_audio_chunks(audio_chunks: list[bytes], language: str) -> str:
     """Decode each MediaRecorder chunk to PCM, join PCM, then transcribe once."""

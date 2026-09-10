@@ -50,7 +50,6 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
     const cy = size / 2;
     const maxRadius = size / 2 - 14;
 
-    // Ambient floating acoustic particles
     const particleCount = 42;
     const particles: Particle[] = [];
     for (let i = 0; i < particleCount; i++) {
@@ -69,11 +68,10 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
       });
     }
 
-    // Detected Audio Threats / Anomalies
     const threatTargets: ThreatBlip[] = [
       {
         id: 'blip-1',
-        angle: 0.88, // ~50 deg
+        angle: 0.88,
         distance: 0.65,
         label: 'NEURAL CLONE',
         sub: '98.7% MATCH',
@@ -82,7 +80,7 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
       },
       {
         id: 'blip-2',
-        angle: 2.35, // ~135 deg
+        angle: 2.35,
         distance: 0.42,
         label: 'PHASE JITTER',
         sub: 'HF VOCODER',
@@ -91,7 +89,7 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
       },
       {
         id: 'blip-3',
-        angle: 4.15, // ~238 deg
+        angle: 4.15,
         distance: 0.76,
         label: 'HUMAN CALLER',
         sub: 'NATURAL GLOTTAL',
@@ -106,10 +104,8 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
     const render = (now: number) => {
       const t = now / 1000;
 
-      // Update sweep angle
       sweepAngle = (sweepAngle + sweepSpeed) % (Math.PI * 2);
 
-      // Check targets hit
       threatTargets.forEach((tgt) => {
         let diff = (sweepAngle - tgt.angle) % (Math.PI * 2);
         if (diff < 0) diff += Math.PI * 2;
@@ -118,7 +114,6 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
         }
       });
 
-      // Update particles
       particles.forEach((p) => {
         p.angle += p.speed;
         const r = p.baseRadius + Math.sin(t * 1.5 + p.angle * 3) * 2.8;
@@ -136,25 +131,22 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
 
       ctx.clearRect(0, 0, size, size);
 
-      // 1. SOLID NON-TRANSPARENT SCOPE BACKDROP
       ctx.save();
       ctx.beginPath();
       ctx.arc(cx, cy, maxRadius, 0, Math.PI * 2);
       const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxRadius);
-      bgGrad.addColorStop(0, '#092330');     // Rich dark cyan-teal core
-      bgGrad.addColorStop(0.35, '#061622');  // Solid deep midnight navy
-      bgGrad.addColorStop(0.72, '#040e16');  // Solid dark charcoal
-      bgGrad.addColorStop(1, '#02070b');     // Solid obsidian perimeter
+      bgGrad.addColorStop(0, '#092330');
+      bgGrad.addColorStop(0.35, '#061622');
+      bgGrad.addColorStop(0.72, '#040e16');
+      bgGrad.addColorStop(1, '#02070b');
       ctx.fillStyle = bgGrad;
       ctx.fill();
 
-      // Precision outer disc rim
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
       ctx.lineWidth = 1.6;
       ctx.stroke();
       ctx.restore();
 
-      // 2. Harmonic Radial Waveform Equalizer (72 micro bars orbiting along middle ring)
       const eqRingRadius = maxRadius * 0.73;
       const numBars = 72;
       ctx.save();
@@ -184,7 +176,6 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
       }
       ctx.restore();
 
-      // 3. Concentric Orbital Rings
       const rings = [
         { r: maxRadius * 0.28, dash: [], alpha: 0.40, width: 1.1, label: '6 kHz' },
         { r: maxRadius * 0.52, dash: [4, 4], alpha: 0.48, width: 1.1, rotate: t * 0.05, label: '12 kHz' },
@@ -213,7 +204,6 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
         ctx.restore();
       });
 
-      // 4. Crosshair Guides & Radial Spokes
       ctx.save();
       ctx.strokeStyle = 'rgba(240, 248, 255, 0.26)';
       ctx.lineWidth = 1;
@@ -232,7 +222,6 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
       }
       ctx.restore();
 
-      // 4.5. Perimeter Azimuth Degree Ticks
       ctx.save();
       const tickCount = 36;
       for (let i = 0; i < tickCount; i++) {
@@ -265,7 +254,6 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
       }
       ctx.restore();
 
-      // 5. Volumetric Sweep Cone
       const sweepTailAngle = Math.PI / 2.6;
       const tailSegments = 30;
 
@@ -289,7 +277,6 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
         ctx.fill();
       }
 
-      // Leading Laser Needle
       const needleX = cx + Math.cos(sweepAngle) * maxRadius;
       const needleY = cy + Math.sin(sweepAngle) * maxRadius;
 
@@ -311,7 +298,6 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
       ctx.fill();
       ctx.restore();
 
-      // 6. Floating Acoustic Particles
       particles.forEach((p) => {
         const totalAlpha = Math.min(1, p.baseAlpha + p.highlightAlpha * 0.85);
         ctx.save();
@@ -328,7 +314,6 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
         ctx.restore();
       });
 
-      // 7. Detected Target Blips
       threatTargets.forEach((tgt) => {
         const tx = cx + Math.cos(tgt.angle) * (maxRadius * tgt.distance);
         const ty = cy + Math.sin(tgt.angle) * (maxRadius * tgt.distance);
@@ -397,7 +382,6 @@ export const RadarDetectionSweep: React.FC<RadarDetectionSweepProps> = ({
         ctx.restore();
       });
 
-      // 8. Center Acoustic Core
       ctx.save();
       ctx.beginPath();
       ctx.arc(cx, cy, 13, 0, Math.PI * 2);

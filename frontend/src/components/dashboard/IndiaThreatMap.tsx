@@ -331,13 +331,11 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
 
   return (
     <div className="w-full flex flex-col gap-5 animate-in fade-in duration-300 select-none">
-      {/* Top Header Box: Title & Three Options to the Right */}
       <div className="p-4 sm:p-5 rounded-2xl bg-[#091219]/90 border border-slate-800/90 shadow-xl backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h2 className="text-xl sm:text-2xl font-bold font-['Space_Grotesk'] text-white tracking-tight shrink-0">
           Virtual Threat Map of India
         </h2>
 
-        {/* Three Filter Options moved to the right */}
         <div className="flex items-center gap-2.5 font-mono text-xs overflow-x-auto">
           {(['ALL', 'Critical', 'Suspicious'] as const).map((filter) => (
             <button
@@ -359,17 +357,13 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
         </div>
       </div>
 
-      {/* Mandatory Geographic Reference Disclaimer Banner */}
       <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-[#091219]/90 border border-amber-500/30 text-amber-300 text-xs font-mono shadow-sm backdrop-blur-md">
         <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
         <span>Location shown may be inaccurate and is intended for reference only.</span>
       </div>
 
-      {/* Main Grid: Left Map + Right Column (Shifted Upwards & Cities Shifted Rightwards) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* Left / Center: Interactive India Map Canvas */}
         <div className="lg:col-span-7 rounded-3xl bg-[#060a0f] border border-teal-500/30 p-4 sm:p-5 shadow-2xl relative overflow-hidden backdrop-blur-xl flex flex-col justify-between h-full">
-          {/* Ambient Glows */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -top-32 -left-32 w-80 h-80 rounded-full bg-cyan-500/10 blur-[100px]"
@@ -379,7 +373,6 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
             className="pointer-events-none absolute -bottom-32 -right-32 w-80 h-80 rounded-full bg-teal-500/10 blur-[100px]"
           />
 
-          {/* Tactical Header Readout */}
           <div className="w-full flex items-center justify-between font-mono text-[11px] text-slate-400 border-b border-slate-800/80 pb-2.5 mb-2 z-10">
             <div className="flex items-center gap-2 text-teal-400 font-bold">
               <Crosshair className="w-3.5 h-3.5" />
@@ -390,22 +383,18 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
             </div>
           </div>
 
-          {/* Map of India Image with Interactive Threat Overlays - Scaled to match right side length */}
           <div className="flex-1 w-full flex items-center justify-center my-auto py-1">
             <div className="relative w-full max-w-[680px] min-h-[640px] sm:min-h-[720px] lg:min-h-[790px] aspect-[877/1024] mx-auto rounded-2xl overflow-hidden shadow-[0_0_35px_rgba(0,0,0,0.8)] border border-slate-800/90 z-10">
-              {/* Background Map Image */}
               <img
                 src="/assets/india-map.png"
                 alt="Political Map of India"
                 className="w-full h-full object-contain pointer-events-none transition-all duration-300 filter invert-[0.92] hue-rotate-[185deg] contrast-[1.15] brightness-[0.95]"
               />
 
-              {/* Tactical Grid & Vignette Overlay */}
               <div
                 className="absolute inset-0 pointer-events-none opacity-25 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(6,10,15,0.7)_100%)]"
               />
 
-              {/* Interactive Threat Hub Pins */}
               {filteredHubs.map((hub) => {
                 const isSelected = selectedHub.id === hub.id;
                 const isHovered = hoveredHub?.id === hub.id;
@@ -422,13 +411,11 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
                     onMouseEnter={() => setHoveredHub(hub)}
                     onMouseLeave={() => setHoveredHub(null)}
                   >
-                    {/* Radar Ripple Waves */}
                     <div
                       className={`absolute -inset-2.5 sm:-inset-3.5 rounded-full animate-ping opacity-60 pointer-events-none ${hub.severity === 'Critical' ? 'bg-rose-500/40' : 'bg-amber-400/40'
                         }`}
                     />
 
-                    {/* Core Radar Beacon Dot */}
                     <div
                       className={`relative w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${isSelected
                         ? 'scale-125 ring-4 ring-teal-400/50 bg-teal-400 border-white shadow-[0_0_15px_rgba(45,212,191,0.8)]'
@@ -440,7 +427,6 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
                       <div className="w-1 h-1 rounded-full bg-slate-950" />
                     </div>
 
-                    {/* Visible Threat Count Badge Attached to Pin */}
                     <div
                       className={`absolute left-1/2 -translate-x-1/2 mt-1 px-1.5 py-0.5 rounded-md font-mono text-[9px] sm:text-[10px] font-black tracking-wider whitespace-nowrap shadow-lg border transition-all duration-150 ${isSelected
                         ? 'bg-teal-400 text-slate-950 border-white scale-110 shadow-[0_0_12px_rgba(45,212,191,0.6)] z-30'
@@ -452,7 +438,6 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
                       {hub.threatCount}
                     </div>
 
-                    {/* Hover or Selected Dossier Tooltip */}
                     {(isSelected || isHovered) && (
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-950/95 border border-teal-500/80 text-slate-100 font-mono text-[11px] whitespace-nowrap shadow-2xl z-40 flex items-center gap-2 backdrop-blur-md pointer-events-none">
                         <span
@@ -471,7 +456,6 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
             </div>
           </div>
 
-          {/* Map Footnote & Legend */}
           <div className="w-full flex flex-wrap items-center justify-between gap-3 mt-3 pt-2.5 border-t border-slate-800/80 text-xs font-mono text-slate-400 z-10">
             <div className="flex items-center gap-3.5">
               <div className="flex items-center gap-1.5">
@@ -491,11 +475,8 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
           </div>
         </div>
 
-        {/* Right Column: Shifted Upwards & List of Cities Shifted Rightwards */}
         <div className="lg:col-span-5 flex flex-col justify-between gap-4 h-full">
-          {/* Selected Location Dossier & Threat HUD (Shifted Upwards) */}
           <div className="p-5 sm:p-6 rounded-3xl bg-[#091219]/95 border border-teal-500/40 shadow-2xl backdrop-blur-xl flex flex-col gap-3.5">
-            {/* HUD Header */}
             <div className="flex items-start justify-between border-b border-slate-800/80 pb-2.5">
               <div>
                 <div className="flex items-center gap-1.5">
@@ -520,7 +501,6 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
               </span>
             </div>
 
-            {/* Total Threat Count Display */}
             <div className="p-3.5 rounded-2xl bg-[#05080c] border border-teal-500/20 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block">
@@ -542,7 +522,6 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
               </div>
             </div>
 
-            {/* Risk Distribution Bar */}
             <div className="space-y-1 font-mono text-xs">
               <div className="flex justify-between text-[11px] text-slate-400">
                 <span>Risk Distribution</span>
@@ -568,7 +547,6 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
               </div>
             </div>
 
-            {/* Primary Attack Vector */}
             <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col gap-0.5">
               <div className="text-[10px] font-mono text-teal-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
                 <Flame className="w-3.5 h-3.5 text-rose-400" />
@@ -579,7 +557,6 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
               </div>
             </div>
 
-            {/* Telephony Carrier Ingest */}
             <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col gap-0.5">
               <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
                 TELECOM INGEST TRUNK
@@ -589,7 +566,6 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
               </div>
             </div>
 
-            {/* Recent Incident Wire Intercept */}
             <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col gap-1">
               <div className="text-[10px] font-mono text-teal-400 uppercase tracking-wider font-bold">
                 LATEST INTERCEPTED WIRE INCIDENT
@@ -599,7 +575,6 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
               </p>
             </div>
 
-            {/* Action Button */}
             <div className="pt-1">
               <button
                 type="button"
@@ -616,7 +591,6 @@ export const IndiaThreatMap: React.FC<IndiaThreatMapProps> = ({ onInspectIntelli
             </div>
           </div>
 
-          {/* Shifted Rightwards: List of Cities (Telecom Hubs) */}
           <div className="p-4 sm:p-5 rounded-2xl bg-[#091219]/95 border border-slate-800/90 shadow-xl backdrop-blur-md flex flex-col gap-2.5">
             <div className="flex items-center justify-between text-xs font-mono border-b border-slate-800/80 pb-2">
               <span className="text-slate-400 uppercase font-bold tracking-wider">

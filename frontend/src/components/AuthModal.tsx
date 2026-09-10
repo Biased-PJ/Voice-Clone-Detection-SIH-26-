@@ -11,8 +11,7 @@ interface AuthModalProps {
   initialMode: 'login' | 'signup';
   reason?: string | null;
   onClose: () => void;
-  // token is our backend's own JWT — callers keep it in React state only,
-  // never localStorage (see App.tsx).
+
   onSuccess: (user: UserProfile, token: string) => void;
 }
 
@@ -81,9 +80,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
       const { access_token } = await loginWithEmail(email.toLowerCase(), password);
 
-      // `role` in this form is just a cosmetic job-title label. The actual
-      // admin/user permission always comes from the backend, kept separate
-      // as `isAdmin` so it can never be spoofed by picking a dropdown value.
       const me = await getMe(access_token);
 
       const user: UserProfile = {

@@ -32,11 +32,6 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Optional ML imports
-# ---------------------------------------------------------------------------
-
 try:
     import librosa
     import tensorflow as tf
@@ -52,17 +47,11 @@ except ImportError:
         "falling back to a neutral placeholder score."
     )
 
-
-# ---------------------------------------------------------------------------
-# Config - MUST MATCH TRAINING
-# ---------------------------------------------------------------------------
-
 SR = 16000
 CLIP_SEC = 2.0
 N_MELS = 40
 N_FFT = 512
 HOP_LENGTH = 256
-
 
 _ASSETS_DIR = os.path.abspath(
     os.path.join(
@@ -72,29 +61,21 @@ _ASSETS_DIR = os.path.abspath(
     )
 )
 
-
 WEIGHTS_PATH = os.path.join(
     _ASSETS_DIR,
     "ai_vs_real_voice_dnn_weights.h5",
 )
-
 
 REPLAY_PATH = os.path.join(
     _ASSETS_DIR,
     "replay_buffer.npz",
 )
 
-
-# ---------------------------------------------------------------------------
-# Self-update configuration
-# ---------------------------------------------------------------------------
-
 HIGH_CONF_FAKE = 0.95
 HIGH_CONF_REAL = 0.05
 UPDATE_LR = 1e-5
 UPDATE_EPOCHS = 1
 REPLAY_BATCH_FRACTION = 0.5
-
 
 ENABLE_SELF_UPDATE = (
     os.getenv(
@@ -103,11 +84,6 @@ ENABLE_SELF_UPDATE = (
     ).lower()
     == "true"
 )
-
-
-# ---------------------------------------------------------------------------
-# FFmpeg
-# ---------------------------------------------------------------------------
 
 def _find_ffmpeg():
     """
@@ -121,7 +97,6 @@ def _find_ffmpeg():
     if ffmpeg_path:
         return ffmpeg_path
 
-    # Windows fallback locations.
     if os.name == "nt":
         possible_paths = [
             r"C:\ffmpeg\bin\ffmpeg.exe",
@@ -135,9 +110,7 @@ def _find_ffmpeg():
 
     return None
 
-
 FFMPEG_PATH = _find_ffmpeg()
-
 
 if FFMPEG_PATH:
     logger.info(
@@ -149,11 +122,6 @@ else:
         "FFmpeg was not found in PATH. "
         "Browser WebM/Opus audio may fail to decode."
     )
-
-
-# ---------------------------------------------------------------------------
-# Audio decoding
-# ---------------------------------------------------------------------------
 
 def _decode_audio_with_ffmpeg(audio_bytes: bytes) -> bytes:
     """
@@ -239,7 +207,6 @@ def _decode_audio_with_ffmpeg(audio_bytes: bytes) -> bytes:
 
     return process.stdout
 
-
 def _load_audio(audio_bytes: bytes):
     """
     Decode audio and return a mono 16 kHz float32 waveform.
@@ -254,10 +221,6 @@ def _load_audio(audio_bytes: bytes):
         raise ValueError(
             "Audio file is empty."
         )
-
-    # -----------------------------------------------------------------------
-    # Attempt direct decoding.
-    # -----------------------------------------------------------------------
 
     try:
         y, _ = librosa.load(
@@ -278,10 +241,6 @@ def _load_audio(audio_bytes: bytes):
             "Trying FFmpeg.",
             direct_error,
         )
-
-    # -----------------------------------------------------------------------
-    # FFmpeg fallback.
-    # -----------------------------------------------------------------------
 
     wav_bytes = _decode_audio_with_ffmpeg(
         audio_bytes
@@ -314,11 +273,6 @@ def _load_audio(audio_bytes: bytes):
         copy=False,
     )
 
-
-# ---------------------------------------------------------------------------
-# DNN
-# ---------------------------------------------------------------------------
-
 if ML_AVAILABLE:
 
     class _VoiceCloneDNN:
@@ -331,10 +285,6 @@ if ML_AVAILABLE:
         def __init__(self):
 
             self._lock = threading.Lock()
-
-            # ----------------------------------------------------------------
-            # Calculate model input size.
-            # ----------------------------------------------------------------
 
             dummy = np.zeros(
                 int(CLIP_SEC * SR),
@@ -350,10 +300,6 @@ if ML_AVAILABLE:
             )
 
             input_dim = dummy_mel.flatten().shape[0]
-
-            # ----------------------------------------------------------------
-            # Build model.
-            # ----------------------------------------------------------------
 
             self.model = models.Sequential(
                 [
@@ -389,18 +335,10 @@ if ML_AVAILABLE:
                 ]
             )
 
-            # ----------------------------------------------------------------
-            # Check weights.
-            # ----------------------------------------------------------------
-
             if not os.path.exists(WEIGHTS_PATH):
                 raise FileNotFoundError(
                     f"DNN weights file not found: {WEIGHTS_PATH}"
                 )
-
-            # ----------------------------------------------------------------
-            # Load H5 weights.
-            # ----------------------------------------------------------------
 
             with h5py.File(
                 WEIGHTS_PATH,
@@ -438,10 +376,6 @@ if ML_AVAILABLE:
                 "DNN weights loaded successfully."
             )
 
-            # ----------------------------------------------------------------
-            # Compile.
-            # ----------------------------------------------------------------
-
             self.model.compile(
                 optimizer=tf.keras.optimizers.Adam(
                     learning_rate=UPDATE_LR
@@ -449,10 +383,6 @@ if ML_AVAILABLE:
                 loss="binary_crossentropy",
                 metrics=["accuracy"],
             )
-
-            # ----------------------------------------------------------------
-            # Replay buffer.
-            # ----------------------------------------------------------------
 
             if not os.path.exists(REPLAY_PATH):
                 raise FileNotFoundError(
@@ -472,10 +402,6 @@ if ML_AVAILABLE:
                 input_dim,
                 self.X_replay.shape,
             )
-
-        # --------------------------------------------------------------------
-        # Audio processing
-        # --------------------------------------------------------------------
 
         @staticmethod
         def _split_into_2s_clips(y):
@@ -512,7 +438,6 @@ if ML_AVAILABLE:
                     ]
                 )
 
-            # Include remaining audio using the last 2 seconds.
             remainder = (
                 total_len
                 - n_full * clip_len
@@ -528,10 +453,6 @@ if ML_AVAILABLE:
                 )
 
             return clips
-
-        # --------------------------------------------------------------------
-        # Feature extraction
-        # --------------------------------------------------------------------
 
         @staticmethod
         def _extract_features(clip):
@@ -560,17 +481,11 @@ if ML_AVAILABLE:
 
             return log_mel.flatten()
 
-        # --------------------------------------------------------------------
-        # Prediction
-        # --------------------------------------------------------------------
-
         def predict(
             self,
             audio_bytes: bytes,
         ):
 
-            # Browser MediaRecorder audio is normally WebM/Opus.
-            # Convert it before passing the audio to librosa.
             y = _load_audio(
                 audio_bytes
             )
@@ -580,12 +495,10 @@ if ML_AVAILABLE:
                     "Uploaded audio contained no samples."
                 )
 
-            # Split into model-sized 2-second clips.
             clips = self._split_into_2s_clips(
                 y
             )
 
-            # Extract features.
             feats = np.array(
                 [
                     self._extract_features(
@@ -600,10 +513,6 @@ if ML_AVAILABLE:
                 raise ValueError(
                     "Could not extract audio features."
                 )
-
-            # ----------------------------------------------------------------
-            # DNN inference.
-            # ----------------------------------------------------------------
 
             with self._lock:
 
@@ -626,10 +535,6 @@ if ML_AVAILABLE:
             avg_score = float(
                 clip_probs.mean()
             )
-
-            # ----------------------------------------------------------------
-            # Optional self-update.
-            # ----------------------------------------------------------------
 
             if ENABLE_SELF_UPDATE:
 
@@ -654,10 +559,6 @@ if ML_AVAILABLE:
                 clip_probs,
                 feats,
             )
-
-        # --------------------------------------------------------------------
-        # Self-update
-        # --------------------------------------------------------------------
 
         def _self_update(
             self,
@@ -743,13 +644,7 @@ else:
 
     _VoiceCloneDNN = None
 
-
-# ---------------------------------------------------------------------------
-# Load DNN once per process
-# ---------------------------------------------------------------------------
-
 _dnn = None
-
 
 if ML_AVAILABLE:
 
@@ -765,11 +660,6 @@ if ML_AVAILABLE:
         )
 
         ML_AVAILABLE = False
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 def analyze_voice(
     audio_bytes: bytes,
@@ -833,7 +723,6 @@ def analyze_voice(
         4,
     )
 
-    # Lower prediction spread means more consistent predictions.
     if len(clip_probs) > 1:
 
         confidence = round(

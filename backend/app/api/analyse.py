@@ -19,14 +19,11 @@ from app.services.scam_score_service import get_scam_score
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-
 def _threat_location(session_id: str) -> dict:
     return get_simulated_threat_location(session_id)
-
 
 def _build_response(session_id: str, language: str, ml_output: dict, transcript: str, scam_score: int) -> AnalyzeResponse:
     risk = compute_risk(ml_output, transcript, scam_score=scam_score)
@@ -45,7 +42,6 @@ def _build_response(session_id: str, language: str, ml_output: dict, transcript:
         threat_location=_threat_location(session_id),
     )
 
-
 def _conclusion(result: AnalyzeResponse) -> str:
     ai = result.ai_voice_percent
     scam = result.scam_score
@@ -60,12 +56,10 @@ def _conclusion(result: AnalyzeResponse) -> str:
         return "SUSPICIOUS CALL — VERIFY BEFORE TRUSTING"
     return "LIKELY SAFE / NO STRONG THREAT DETECTED"
 
-
 def _is_usable_transcript(text: str) -> bool:
     if not text:
         return False
     return not text.lstrip().startswith("[") and len(text.strip()) >= 2
-
 
 def _merge_transcript(existing: list[str], text: str) -> None:
     text = re.sub(r"\s+", " ", (text or "").strip())
@@ -78,8 +72,6 @@ def _merge_transcript(existing: list[str], text: str) -> None:
         if previous == normalized:
             return
 
-        # Live Whisper windows can overlap at their boundaries. Remove a
-        # repeated suffix/prefix rather than displaying duplicated words.
         prev_words = previous.split()
         new_words = normalized.split()
         max_overlap = min(8, len(prev_words), len(new_words))
@@ -95,7 +87,6 @@ def _merge_transcript(existing: list[str], text: str) -> None:
                 return
 
     existing.append(text)
-
 
 @router.post("/api/v1/analyze/audio", response_model=AnalyzeResponse)
 async def analyze_audio(
@@ -128,7 +119,6 @@ async def analyze_audio(
         "conclusion": _conclusion(result),
     })
     return result
-
 
 @router.websocket("/api/v1/analyze/live")
 async def analyze_live(websocket: WebSocket):
@@ -199,8 +189,7 @@ async def analyze_live(websocket: WebSocket):
             return
         scam_result = await run_in_threadpool(get_scam_score, full_transcript)
         score = int(scam_result.get("scam_score", 0))
-        # Keep call-level evidence. A harmless later sentence must not erase a
-        # strong scam signal already detected during this call.
+
         latest_scam_score = max(latest_scam_score, score)
         latest_scam_reasons = list(dict.fromkeys(latest_scam_reasons + list(scam_result.get("reasons", []))))
 
@@ -211,8 +200,7 @@ async def analyze_live(websocket: WebSocket):
         await safe_send({
             "type": "analysis",
             **latest_result.dict(),
-            # Always return the accumulated transcript so the UI never has to
-            # reconstruct it from transient websocket packets.
+
             "transcript": full_transcript,
             "new_transcript": transcript,
             "scam_reasons": latest_scam_reasons,
@@ -223,18 +211,12 @@ async def analyze_live(websocket: WebSocket):
         if finalized:
             return
 
-        # First perform a fresh transcription over ALL audio received during the call.
-        # This is the reliable fallback when one or more 2-second live chunks had no
-        # transcript. Each WebM/Opus fragment is decoded separately before concatenation.
         if audio_chunks:
             aggregate_transcript = await run_in_threadpool(transcribe_audio_chunks, list(audio_chunks), language)
             if _is_usable_transcript(aggregate_transcript):
                 transcript_parts.clear()
                 transcript_parts.append(aggregate_transcript)
 
-        # Mark finalization only after all scoring/persistence succeeds. This
-        # prevents a transient DB/processing exception from permanently losing
-        # the final conclusion.
         await score_current_transcript()
         full_transcript = " ".join(transcript_parts).strip()
         latest_result = _build_response(session_id, language, aggregate_ml(), full_transcript, latest_scam_score)
@@ -253,8 +235,6 @@ async def analyze_live(websocket: WebSocket):
             except (TypeError, ValueError):
                 pass
 
-        # Upsert by session_id so a retry/finalize race can never create two
-        # final records for the same live call.
         analysis_doc = {
             **latest_result.dict(),
             "transcript": full_transcript,
@@ -274,9 +254,6 @@ async def analyze_live(websocket: WebSocket):
             upsert=True,
         )
 
-        # Store the complete result on the call session too. This makes Call
-        # History/Intelligence resilient even if one frontend refresh happens
-        # between the websocket and the history API call.
         await db["call_sessions"].update_one(
             {"session_id": session_id},
             {"$set": {
@@ -322,8 +299,7 @@ async def analyze_live(websocket: WebSocket):
                     control = {}
 
                 if control.get("type") == "transcription_mode":
-                    # The browser can provide instant text, but backend Whisper
-                    # is still allowed as a safety net if browser text stops.
+
                     continue
 
                 if control.get("type") == "transcript":
@@ -352,22 +328,17 @@ async def analyze_live(websocket: WebSocket):
             audio_chunks.append(bytes(audio_bytes))
 
             try:
-                # Run acoustic analysis and Whisper concurrently. This is the
-                # key reliability change: Score 2 no longer depends exclusively
-                # on browser SpeechRecognition being available.
+
                 ml_task = run_in_threadpool(analyze_voice, audio_bytes, "", language)
                 stt_task = run_in_threadpool(transcribe_audio, audio_bytes, language, True)
                 ml_output, whisper_text = await asyncio.gather(ml_task, stt_task)
                 synthetic_scores.append(float(ml_output["synthetic_probability"]))
 
-                # If browser text is already arriving, prefer it. Otherwise use
-                # Whisper for this audio window immediately.
                 if not browser_transcript_received and _is_usable_transcript(whisper_text):
                     _merge_transcript(transcript_parts, whisper_text)
                     last_audio_transcript_index = len(transcript_parts)
                 elif browser_transcript_received and len(transcript_parts) == last_audio_transcript_index:
-                    # Browser recognition may have temporarily gone silent.
-                    # Whisper still gets a chance to recover the current window.
+
                     if _is_usable_transcript(whisper_text):
                         _merge_transcript(transcript_parts, whisper_text)
                         last_audio_transcript_index = len(transcript_parts)
@@ -382,6 +353,5 @@ async def analyze_live(websocket: WebSocket):
 
     except WebSocketDisconnect:
         socket_alive = False
-        # A browser/network disconnect is a normal websocket lifecycle event.
-        # Never attempt another websocket send from this branch.
+
         pass

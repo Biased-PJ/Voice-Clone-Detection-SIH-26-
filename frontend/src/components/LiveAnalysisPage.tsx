@@ -46,7 +46,6 @@ type BrowserSpeechRecognition = {
   stop: () => void;
 };
 
-
 interface ScenarioData {
   id: CallScenario;
   callerName: string;
@@ -257,10 +256,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Real scoring for the "mic" scenario only — the canned attack scenarios
-  // (elevenlabs/rvc/xtts/organic-human) stay as illustrative demo content,
-  // same as RecordedAnalysisPage's sample gallery. Mic mode is the one that
-  // actually talks to POST /api/v1/analyze/audio.
   const [micLiveResult, setMicLiveResult] = useState<ScenarioData | null>(null);
   const [micStatus, setMicStatus] = useState<'idle' | 'listening' | 'analyzing' | 'error'>('idle');
   const [micError, setMicError] = useState<string | null>(null);
@@ -272,7 +267,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
   const alarmArmedRef = useRef(true);
   const cloneAlarmThreshold = 80;
 
-  // Audio Context for hardware mic
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -295,7 +289,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
       ? 'Suspicious'
       : 'Safe';
 
-  // Call timer simulation
   useEffect(() => {
     if (!isCallActive) return;
     const interval = setInterval(() => {
@@ -304,7 +297,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
     return () => clearInterval(interval);
   }, [isCallActive]);
 
-  // Handle hardware mic
   useEffect(() => {
     if (currentScenario === 'mic' && isCallActive) {
       startMic();
@@ -428,7 +420,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
       };
       recognition.onend = () => {
         if (micLoopActiveRef.current && socket.readyState === WebSocket.OPEN) {
-          try { recognition.start(); } catch { /* already restarting */ }
+          try { recognition.start(); } catch {  }
         }
       };
       recognition.start();
@@ -444,13 +436,10 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
     const recognition = speechRecognitionRef.current;
     speechRecognitionRef.current = null;
     if (recognition) {
-      try { recognition.stop(); } catch { /* already stopped */ }
+      try { recognition.stop(); } catch {  }
     }
   };
 
-  // Live analysis uses a persistent WebSocket. Each MediaRecorder segment is a
-  // complete, independently decodable audio file, so the backend can score it
-  // immediately without waiting for the call to finish.
   const runMicAnalysisLoop = async (stream: MediaStream, sessionId: string) => {
     micLoopActiveRef.current = true;
 
@@ -530,7 +519,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
       }
     };
 
-    // Wait for the WebSocket before recording so the first chunk cannot be lost.
     try {
       await new Promise<void>((resolve, reject) => {
         if (socket.readyState === WebSocket.OPEN) {
@@ -560,11 +548,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
       return;
     }
 
-    // Chrome/Edge browser speech recognition gives us a live transcript without
-    // requiring a Whisper model download. Whisper remains the backend fallback.
-    // Backend Whisper is the authoritative live transcript. Browser
-    // SpeechRecognition is intentionally not used here because Chrome's
-    // recognition was hard-coded to en-IN and could corrupt multilingual calls.
     const browserTranscriptEnabled = false;
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'transcription_mode', mode: 'whisper' }));
@@ -619,8 +602,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
       }
     }
 
-    // stopMic() owns the socket shutdown so it can request one final aggregate
-    // analysis before closing the connection.
     if (micLoopActiveRef.current && socket.readyState === WebSocket.OPEN) {
       socket.close(1000, 'analysis loop ended');
     }
@@ -706,7 +687,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
 
     const socket = liveSocketRef.current;
     if (socket && socket.readyState === WebSocket.OPEN && !finalizeSentRef.current) {
-      // Let SpeechRecognition deliver any final phrase before the aggregate.
+
       if (finalizeTimerRef.current) window.clearTimeout(finalizeTimerRef.current);
       finalizeTimerRef.current = window.setTimeout(() => {
         if (socket.readyState !== WebSocket.OPEN || finalizeSentRef.current) return;
@@ -715,9 +696,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
           setMicStatus('analyzing');
           socket.send(JSON.stringify({ type: 'finalize' }));
 
-          // Hard fallback: the UI must never get stuck waiting forever for a
-          // websocket final packet. Persist the last known result through the
-          // HTTP endpoint and show a local conclusion as a safety net.
           finalizeTimerRef.current = window.setTimeout(async () => {
             if (finalResult || !authToken) return;
             const last = lastBackendResultRef.current;
@@ -740,7 +718,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
               setIsCallActive(false);
               const sid = backendSessionIdRef.current;
               if (sid) {
-                try { await endCallSession(sid, authToken, fallback); } catch { /* UI still shows the result */ }
+                try { await endCallSession(sid, authToken, fallback); } catch {  }
                 backendSessionIdRef.current = null;
               }
               window.dispatchEvent(new Event('voiceguardian-history-updated'));
@@ -756,8 +734,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
         }
       }, 1200);
     }
-    // IMPORTANT: stopMic can be called twice by React effects. If finalization
-    // was already requested, do not close the socket; wait for the final result.
+
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try { mediaRecorderRef.current.stop(); } catch { }
     }
@@ -772,8 +749,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
     }
     analyserRef.current = null;
     if (!finalizeSentRef.current) setMicStatus('idle');
-    // Keep the last live result visible after the call ends so the final
-    // conclusion modal can summarize the completed call. A new call clears it.
+
     setThresholdAlert(false);
     setCloneAlarmScore(null);
     alarmArmedRef.current = true;
@@ -936,7 +912,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
         </div>
       )}
 
-      {/* ===================== UNIVERSAL APP SIDEBAR ===================== */}
       <AppSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -956,10 +931,8 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
         isOverlay={true}
       />
 
-      {/* ===================== CLEAN, UNCLUSTERED HEADER ===================== */}
       <header className="relative z-20 border-b border-slate-800/80 bg-[#070b10]/90 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3 sm:gap-4">
-          {/* Sidebar Toggle Button */}
           <button
             type="button"
             id="live-analysis-sidebar-toggle-btn"
@@ -994,7 +967,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
 
           <div className="h-4 w-px bg-slate-800 hidden sm:block" />
 
-          {/* Caller Identity */}
           <div className="flex items-center gap-3">
             <span
               className={`w-2.5 h-2.5 rounded-full ${isCallActive ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
@@ -1013,9 +985,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
           </div>
         </div>
 
-        {/* Clean Call Controls */}
         <div className="flex items-center gap-3">
-          {/* Call Duration */}
           <div className="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs font-mono text-slate-300">
             {isCallActive ? (
               <span className="flex items-center gap-1.5">
@@ -1027,7 +997,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
             )}
           </div>
 
-          {/* End / Sever Call Button */}
           {isCallActive ? (
             <button
               type="button"
@@ -1050,7 +1019,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
         </div>
       </header>
 
-      {/* ===================== CALL SCENARIO SWITCHER (CLEAN & SUBTLE) ===================== */}
       <div className="relative z-10 border-b border-slate-800/50 bg-[#06090d]/60 px-4 sm:px-8 py-4">
         <div className="mx-auto flex max-w-[1360px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div><span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Live microphone channel</span><p className="mt-1 text-xs text-slate-500">Only backend results from an activated microphone session appear here.</p></div>
@@ -1058,14 +1026,9 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
         </div>
       </div>
 
-      {/* ===================== MAIN UNCLUSTERED WORKSPACE ===================== */}
-      {/* Exactly: Waveform Pitch Animation + Two Scores /100 + One Column for Live Suggestions */}
       <main className="relative z-10 flex-1 max-w-[1360px] w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col lg:flex-row gap-6 items-start">
-        {/* ===================== LEFT: THE TWO SCORES + THE ONE WAVEFORM ANIMATION ===================== */}
         <div className="flex-1 w-full flex flex-col gap-6">
-          {/* ===================== THE TWO SCORES OUT OF 100 ===================== */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* SCORE 1: AI VOICE SCORE */}
             <div className="p-5 rounded-2xl bg-[#080d13] border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.25)] flex flex-col justify-between">
               <div className="flex items-center justify-between pb-2 border-b border-slate-800/70">
                 <div className="flex items-center gap-2">
@@ -1106,7 +1069,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
                 </span>
               </div>
 
-              {/* Progress bar */}
               <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden mb-2">
                 <div
                   className={`h-full rounded-full transition-all duration-700 ${scenario.aiVoiceScore >= 70
@@ -1124,7 +1086,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
               </p>
             </div>
 
-            {/* SCORE 2: SCAM INTENT SCORE */}
             <div className="p-5 rounded-2xl bg-[#080d13] border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.25)] flex flex-col justify-between">
               <div className="flex items-center justify-between pb-2 border-b border-slate-800/70">
                 <div className="flex items-center gap-2">
@@ -1165,7 +1126,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
                 </span>
               </div>
 
-              {/* Progress bar */}
               <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden mb-2">
                 <div
                   className={`h-full rounded-full transition-all duration-700 ${scenario.scamIntentScore >= 70
@@ -1184,7 +1144,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
             </div>
           </div>
 
-          {/* ===================== THE ONE WAVEFORM PITCH ANIMATION ===================== */}
           <CallerPitchWaveform
             analyserNode={analyserRef.current}
             isActive={isCallActive}
@@ -1241,10 +1200,8 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
           )}
         </div>
 
-        {/* ===================== RIGHT: THE ONE COLUMN FOR LIVE SUGGESTIONS ===================== */}
         <aside className="w-full lg:w-[420px] shrink-0 flex flex-col gap-4">
           <div className="p-5 rounded-2xl bg-[#080d13] border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.25)] flex flex-col">
-            {/* Header of Live Suggestions */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-teal-500/10 border border-teal-500/30 text-teal-400">
@@ -1266,7 +1223,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
               </span>
             </div>
 
-            {/* List of Suggestions */}
             <div className="mt-4 space-y-3">
               {scenario.suggestions.map((sug) => {
                 const isCrit = sug.level === 'critical';
@@ -1345,7 +1301,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
               })}
             </div>
 
-            {/* Quick Emergency Action */}
             <div className="mt-5 pt-4 border-t border-slate-800/80">
               <button
                 type="button"
@@ -1360,7 +1315,6 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
         </aside>
       </main>
 
-      {/* Consistent Professional Footer */}
       <Footer />
     </div>
   );

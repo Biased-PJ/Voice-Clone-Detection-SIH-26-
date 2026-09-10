@@ -33,7 +33,6 @@ export const LiveAcousticOscilloscope: React.FC<LiveAcousticOscilloscopeProps> =
       const height = canvas.height;
       ctx.clearRect(0, 0, width, height);
 
-      // Background subtle grid
       ctx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
       ctx.lineWidth = 1;
       const step = 24;
@@ -50,7 +49,6 @@ export const LiveAcousticOscilloscope: React.FC<LiveAcousticOscilloscopeProps> =
         ctx.stroke();
       }
 
-      // Center zero-axis
       ctx.strokeStyle = 'rgba(45, 212, 191, 0.2)';
       ctx.setLineDash([4, 4]);
       ctx.beginPath();

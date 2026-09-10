@@ -9,7 +9,6 @@ The same session_id always produces the same simulated location.
 
 import hashlib
 
-
 CITIES = [
     ("Delhi", 28.6139, 77.2090),
     ("Mumbai", 19.0760, 72.8777),
@@ -28,14 +27,12 @@ CITIES = [
     ("Kochi", 9.9312, 76.2673),
 ]
 
-
 def _stable_number(session_id: str, salt: str) -> int:
     """Convert session_id + salt into a stable non-negative integer."""
     digest = hashlib.sha256(
         f"{session_id}:{salt}".encode("utf-8")
     ).digest()
     return int.from_bytes(digest[:8], "big")
-
 
 def get_simulated_threat_location(session_id: str) -> dict:
     """Return one stable simulated location for the whole call session."""
@@ -45,7 +42,6 @@ def get_simulated_threat_location(session_id: str) -> dict:
     city_index = _stable_number(session_id, "city") % len(CITIES)
     city, latitude, longitude = CITIES[city_index]
 
-    # Deterministic offset of roughly 0-5 km around the selected city.
     lat_unit = _stable_number(session_id, "latitude") / float(2**64 - 1)
     lon_unit = _stable_number(session_id, "longitude") / float(2**64 - 1)
 

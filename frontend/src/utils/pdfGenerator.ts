@@ -8,15 +8,12 @@ export function generatePdfReport(result: AudioAnalysisResult): void {
     format: 'a4',
   });
 
-  // Dark background top banner
   doc.setFillColor(8, 13, 17);
   doc.rect(0, 0, 210, 40, 'F');
 
-  // Cyan brand accent line
   doc.setFillColor(34, 211, 238);
   doc.rect(0, 40, 210, 2, 'F');
 
-  // Brand header text
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(45, 212, 191);
   doc.setFontSize(16);
@@ -31,7 +28,6 @@ export function generatePdfReport(result: AudioAnalysisResult): void {
   doc.setFontSize(8);
   doc.text(`Generated: ${result.analysisTimestamp}`, 15, 33);
 
-  // Verdict box
   const isAi = result.isAiGenerated;
   if (isAi) {
     doc.setFillColor(254, 242, 242);
@@ -71,7 +67,6 @@ export function generatePdfReport(result: AudioAnalysisResult): void {
     );
   }
 
-  // Audio Telemetry Section
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(11);
@@ -89,7 +84,6 @@ export function generatePdfReport(result: AudioAnalysisResult): void {
   doc.text(`Duration: ${result.duration} seconds`, 110, 95);
   doc.text(`Sample Rate: ${result.sampleRate} Hz`, 110, 102);
 
-  // Acoustic DSP Forensics
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(11);
@@ -121,7 +115,6 @@ export function generatePdfReport(result: AudioAnalysisResult): void {
     134
   );
 
-  // 5 Checkpoints
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(11);
@@ -149,7 +142,6 @@ export function generatePdfReport(result: AudioAnalysisResult): void {
     currentY += 13;
   });
 
-  // Recommended Remediation Action
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(11);
@@ -162,7 +154,6 @@ export function generatePdfReport(result: AudioAnalysisResult): void {
   const actionLines = doc.splitTextToSize(result.recommendedAction, 180);
   doc.text(actionLines, 15, currentY + 15);
 
-  // Footer
   doc.setFontSize(8);
   doc.setTextColor(148, 163, 184);
   doc.text(

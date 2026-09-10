@@ -26,11 +26,9 @@ export const LiveFormantResonance: React.FC<LiveFormantResonanceProps> = ({
     const width = canvas.width;
     const height = canvas.height;
 
-    // Tactical dark canvas
     ctx.fillStyle = '#060a0f';
     ctx.fillRect(0, 0, width, height);
 
-    // Coordinate grid
     ctx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -44,7 +42,6 @@ export const LiveFormantResonance: React.FC<LiveFormantResonanceProps> = ({
     }
     ctx.stroke();
 
-    // Natural biological human formant boundary ellipse
     const humanCenterX = width * 0.45;
     const humanCenterY = height * 0.55;
     const humanRadiusX = width * 0.32;
@@ -65,7 +62,6 @@ export const LiveFormantResonance: React.FC<LiveFormantResonanceProps> = ({
     ctx.font = '10px monospace';
     ctx.fillText('BIOLOGICAL HUMAN ENVELOPE (VTL 15-18cm)', humanCenterX - 80, humanCenterY - humanRadiusY - 6);
 
-    // Map F1 (300-1200 Hz) to Y, F2 (700-2600 Hz) to X
     const minF1 = 200, maxF1 = 1400;
     const minF2 = 600, maxF2 = 2800;
 
@@ -75,11 +71,9 @@ export const LiveFormantResonance: React.FC<LiveFormantResonanceProps> = ({
     const plotX = 30 + normX * (width - 60);
     const plotY = height - (30 + normY * (height - 60));
 
-    // Plot current live acoustic coordinate
     const isCritical = threatLevel === 'Critical';
     const pointColor = isCritical ? '#f43f5e' : threatLevel === 'Suspicious' ? '#f59e0b' : '#22d3ee';
 
-    // Crosshairs on point
     ctx.strokeStyle = pointColor;
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 2]);
@@ -91,7 +85,6 @@ export const LiveFormantResonance: React.FC<LiveFormantResonanceProps> = ({
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Glow pulse ring
     ctx.save();
     ctx.beginPath();
     ctx.arc(plotX, plotY, 14, 0, Math.PI * 2);
@@ -106,7 +99,6 @@ export const LiveFormantResonance: React.FC<LiveFormantResonanceProps> = ({
     ctx.fill();
     ctx.restore();
 
-    // Coordinates tag
     ctx.fillStyle = '#f8fafc';
     ctx.font = '10px monospace';
     ctx.fillText(
@@ -115,7 +107,6 @@ export const LiveFormantResonance: React.FC<LiveFormantResonanceProps> = ({
       Math.max(20, plotY - 10)
     );
 
-    // Axis labels
     ctx.fillStyle = '#64748b';
     ctx.font = '9px monospace';
     ctx.fillText('F2 Resonance (High Formants →)', width - 180, height - 8);

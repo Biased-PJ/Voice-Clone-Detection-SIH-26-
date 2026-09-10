@@ -37,7 +37,6 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="pt-8 pb-4 sm:pt-10 sm:pb-6">
       <div className="flex items-center justify-between">
-        {/* Brand Title */}
         <a href="/" className="group flex flex-col tracking-wider font-bold select-none">
           <span className="text-xl sm:text-2xl font-extrabold tracking-widest leading-none font-['Space_Grotesk'] text-[#2dd4bf] drop-shadow-[0_0_12px_rgba(45,212,191,0.25)]">
             TEAM
@@ -47,7 +46,6 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </a>
 
-        {/* Top Right Auth Section */}
         <div className="flex items-center gap-2 sm:gap-3">
           {user ? (
             <div className="flex items-center gap-2 sm:gap-2.5">

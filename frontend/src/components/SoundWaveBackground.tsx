@@ -46,19 +46,18 @@ export const SoundWaveBackground: React.FC = () => {
           </linearGradient>
         </defs>
 
-        {/* Deep background harmonic waves */}
         <path
-          d="M 0 250 
-             Q 80 180, 160 250 
-             T 320 250 
-             Q 400 120, 480 250 
-             T 640 250 
-             Q 720 70, 800 250 
-             T 960 250 
-             Q 1040 130, 1120 250 
-             T 1280 250 
-             Q 1360 190, 1440 250 
-             T 1600 250 
+          d="M 0 250
+             Q 80 180, 160 250
+             T 320 250
+             Q 400 120, 480 250
+             T 640 250
+             Q 720 70, 800 250
+             T 960 250
+             Q 1040 130, 1120 250
+             T 1280 250
+             Q 1360 190, 1440 250
+             T 1600 250
              L 1600 250
              Q 1440 310, 1360 250
              T 1120 250
@@ -72,7 +71,6 @@ export const SoundWaveBackground: React.FC = () => {
           fill="url(#waveGrad3)"
         />
 
-        {/* Mid-layer dense audio frequency peaks matching screenshot */}
         <path
           d="M 0 250
              C 70 210, 110 130, 160 140
@@ -100,7 +98,6 @@ export const SoundWaveBackground: React.FC = () => {
           strokeWidth="0.8"
         />
 
-        {/* Foreground sharp resonance envelope */}
         <path
           d="M 0 250
              Q 90 220, 150 170
@@ -132,7 +129,6 @@ export const SoundWaveBackground: React.FC = () => {
           strokeWidth="1"
         />
 
-        {/* Subtle glowing center horizontal acoustic beam */}
         <path
           d="M 0 250 Q 400 244, 800 244 Q 1200 244, 1600 250 Q 1200 256, 800 256 Q 400 256, 0 250 Z"
           fill="url(#centerGlow)"

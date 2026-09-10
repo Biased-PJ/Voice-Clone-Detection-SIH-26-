@@ -19,7 +19,6 @@ from app.database import db
 
 DEMO_FILE = os.path.join(os.path.dirname(__file__), "demo_calls.json")
 
-
 async def seed():
     if not os.path.exists(DEMO_FILE):
         print(f"No {DEMO_FILE} found. See this script's docstring for how to export it.")
@@ -32,7 +31,6 @@ async def seed():
         print("demo_calls.json must contain a JSON array of call records.")
         return
 
-    # Wipe previous demo seed so re-running this script is idempotent.
     await db["calls"].delete_many({"is_demo": True})
 
     for record in records:
@@ -42,7 +40,6 @@ async def seed():
         await db["calls"].insert_many(records)
 
     print(f"Seeded {len(records)} demo call(s) into the 'calls' collection.")
-
 
 if __name__ == "__main__":
     asyncio.run(seed())

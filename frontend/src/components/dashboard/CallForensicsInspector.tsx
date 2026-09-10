@@ -58,7 +58,6 @@ export const CallForensicsInspector: React.FC<CallForensicsInspectorProps> = ({
   const isCritical = call.status === 'Critical';
   const isSuspicious = call.status === 'Suspicious';
 
-  // Derived Dual Scores
   const aiScore = call.aiVoiceScore ?? (isCritical ? 97 : isSuspicious ? 68 : 4);
   const scamScore = call.scamIntentScore ?? (isCritical ? 94 : isSuspicious ? 62 : 5);
 
@@ -148,7 +147,6 @@ export const CallForensicsInspector: React.FC<CallForensicsInspectorProps> = ({
       ];
     }
 
-    // Safe (e.g. CALL-2291, CALL-2288)
     return [
       {
         id: `${call.id}-sug-1`,
@@ -206,7 +204,6 @@ export const CallForensicsInspector: React.FC<CallForensicsInspectorProps> = ({
 
   return (
     <div className="p-5 sm:p-6 rounded-2xl bg-[#080d13] border border-slate-800/90 shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col gap-5">
-      {/* 1. Call ID & Metadata Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
         <div className="flex items-center gap-3">
           <div
@@ -275,9 +272,7 @@ export const CallForensicsInspector: React.FC<CallForensicsInspectorProps> = ({
         </div>
       </div>
 
-      {/* 2. The Two Core Scores Out of 100 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        {/* SCORE 1: AI VOICE SCORE */}
         <div className="p-4 rounded-xl bg-[#05080c] border border-slate-800/80 flex flex-col justify-between">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
             <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
@@ -318,7 +313,6 @@ export const CallForensicsInspector: React.FC<CallForensicsInspectorProps> = ({
             </span>
           </div>
 
-          {/* Progress bar */}
           <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden mb-2">
             <div
               className={`h-full rounded-full transition-all duration-700 ${
@@ -337,7 +331,6 @@ export const CallForensicsInspector: React.FC<CallForensicsInspectorProps> = ({
           </p>
         </div>
 
-        {/* SCORE 2: SCAM INTENT SCORE */}
         <div className="p-4 rounded-xl bg-[#05080c] border border-slate-800/80 flex flex-col justify-between">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
             <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
@@ -378,7 +371,6 @@ export const CallForensicsInspector: React.FC<CallForensicsInspectorProps> = ({
             </span>
           </div>
 
-          {/* Progress bar */}
           <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden mb-2">
             <div
               className={`h-full rounded-full transition-all duration-700 ${
@@ -398,9 +390,7 @@ export const CallForensicsInspector: React.FC<CallForensicsInspectorProps> = ({
         </div>
       </div>
 
-      {/* 3. Suggestions & Recommended Actions */}
       <div className="pt-4 border-t border-slate-800/80 flex flex-col">
-        {/* Header of Suggestions */}
         <div className="flex items-center justify-between pb-3">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 rounded-lg bg-teal-500/10 border border-teal-500/30 text-teal-400">
@@ -422,7 +412,6 @@ export const CallForensicsInspector: React.FC<CallForensicsInspectorProps> = ({
           </span>
         </div>
 
-        {/* List of Suggestions */}
         <div className="mt-1 space-y-2.5">
           {suggestions.map((sug) => {
             const isCrit = sug.level === 'critical';

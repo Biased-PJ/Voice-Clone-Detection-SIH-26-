@@ -57,7 +57,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     return () => { cancelled = true; window.removeEventListener('voiceguardian-history-updated', loadCount); };
   }, [authToken]);
 
-  // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -139,7 +138,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
   const content = (
     <div className="w-72 sm:w-80 h-full flex flex-col justify-between bg-[#060a0f]/98 border-r border-slate-800/90 text-slate-200 font-['Plus_Jakarta_Sans',sans-serif] select-none p-4 sm:p-5 backdrop-blur-2xl shadow-2xl overflow-y-auto">
-      {/* Brand Header */}
       <div className="space-y-6">
         <div className="flex items-center justify-between pb-3.5 border-b border-slate-800/80">
           <div className="flex items-center gap-2.5">
@@ -166,7 +164,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           </button>
         </div>
 
-        {/* Unified Navigation List */}
         <div className="space-y-1.5 font-mono">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -212,7 +209,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         </div>
       </div>
 
-      {/* Footer / User Profile */}
       <div className="pt-4 border-t border-slate-800/80 space-y-3 font-mono mt-6">
         {user ? (
           <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 shadow-inner">
@@ -275,12 +271,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   if (isOverlay) {
     return (
       <div className="fixed inset-0 z-50 flex">
-        {/* Backdrop */}
         <div
           className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
           onClick={onClose}
         />
-        {/* Sliding Panel */}
         <div className="relative z-10 animate-in slide-in-from-left duration-200 h-full shadow-2xl">
           {content}
         </div>

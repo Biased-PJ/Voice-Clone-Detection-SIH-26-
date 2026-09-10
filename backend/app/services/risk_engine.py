@@ -5,8 +5,6 @@ def compute_risk(ml_output: dict, transcript: str, scam_score: int = 0) -> dict:
     scam = max(0, min(100, int(scam_score)))
     text = (transcript or "").lower()
 
-    # Acoustic evidence is deliberately important, but scam intent also has a
-    # strong direct contribution so a human-sounding scam call is still flagged.
     synthetic_component = synthetic * 60
     mismatch_component = (1.0 - speaker_match) * 10
     scam_component = scam * 0.30

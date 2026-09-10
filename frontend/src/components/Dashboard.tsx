@@ -92,11 +92,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [sidePanelCall, setSidePanelCall] = useState<ForensicsCall | null>(null);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
-  // Call History state
   const [historySearchQuery, setHistorySearchQuery] = useState<string>('');
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'ALL' | 'Safe' | 'Suspicious' | 'Critical'>('ALL');
 
-  // Settings state
   const [dspSampleRate, setDspSampleRate] = useState<'48000' | '96000'>('96000');
   const [dspFftSize, setDspFftSize] = useState<'1024' | '2048' | '4096'>('2048');
   const [cloneThreshold, setCloneThreshold] = useState<number>(() => Number(localStorage.getItem('voiceguardian_clone_threshold') || 75));
@@ -138,9 +136,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const isAdmin = user?.isAdmin === true;
 
-  // Demo dataset — shown to admins (mirrors the is_demo:true seed in Mongo).
-  // Real users start with an empty list and get their own analysis_results
-  // fetched from the backend below; we never show them this fabricated data.
   const DEMO_RECENT_CALLS: ForensicsCall[] = [
     {
       id: 'CALL-2291',
@@ -366,7 +361,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (!recentCalls.find((c) => c.id === selectedCall?.id)) {
       setSelectedCall(recentCalls[0]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [recentCalls]);
 
   const handlePlayAudio = (
@@ -533,7 +528,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="min-h-screen bg-[#060a0e] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] relative overflow-x-hidden selection:bg-teal-500/30 selection:text-teal-200">
       <PageBackground variant="dashboard" />
 
-      {/* Universal App Sidebar */}
       <AppSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -587,7 +581,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* Top Ribbon */}
       <div className="relative z-20 bg-[#05080c]/90 border-b border-slate-800/80 px-4 sm:px-8 py-1.5 flex items-center justify-between text-[11px] font-mono text-slate-400 select-none overflow-x-auto backdrop-blur-md">
         <div className="flex items-center gap-4 shrink-0">
           <div className="flex items-center gap-2 text-teal-400">
@@ -626,7 +619,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Main Top Header */}
       <header className="relative z-20 border-b border-slate-800/90 bg-[#080d12]/90 backdrop-blur-md sticky top-0 px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-2.5 select-none">
@@ -796,10 +788,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </header>
 
-      {/* Main Layout Container */}
       <div className="relative z-10 flex-1 flex flex-col max-w-[1680px] w-full mx-auto p-3 sm:p-6 lg:p-8 gap-6 transition-all duration-300">
         <main className="flex-1 min-w-0 flex flex-col gap-6">
-          {/* Active Tab Sub-header Indicator */}
           {activeTab !== 'History' && activeTab !== 'Threat Map' && (
             <div className="flex items-center justify-between pb-1 border-b border-slate-800/60">
               <div className="flex items-center gap-2.5">
@@ -835,10 +825,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           )}
 
-          {/* ===================== TAB 1: DASHBOARD OVERVIEW ===================== */}
           {(activeTab === 'Overview' || !activeTab) && (
             <>
-              {/* Top 5 Metric Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                 <div className="p-4 sm:p-5 rounded-2xl bg-[#091219]/90 border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.3)] flex flex-col justify-between group hover:border-slate-700 transition-all backdrop-blur-md">
                   <div className="flex items-center justify-between">
@@ -949,7 +937,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* Real Stats Ratios for Charting */}
               {(() => {
                 const totalC = recentCalls.length;
                 const critC = recentCalls.filter((c) => c.status === 'Critical').length;
@@ -961,9 +948,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                 return (
                   <>
-                    {/* HERO QUICK ACTIONS COMMAND DECK - High Visibility */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Live Call Analysis Button */}
                       <button
                         type="button"
                         id="hero-quick-action-live-btn"
@@ -993,7 +978,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                       </button>
 
-                      {/* Record Call / Upload Button */}
                       <button
                         type="button"
                         id="hero-quick-action-record-btn"
@@ -1022,7 +1006,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                       </button>
 
-                      {/* Call Forensics Button */}
                       <button
                         type="button"
                         id="hero-quick-action-forensics-btn"
@@ -1052,7 +1035,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       </button>
                     </div>
 
-                    {/* REAL RISK DISTRIBUTION & TIMELINE TRENDS */}
                     <div className="p-5 sm:p-6 rounded-2xl bg-[#091219]/90 border border-slate-800/90 shadow-xl backdrop-blur-md flex flex-col gap-4">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800/80">
                         <div className="flex items-center gap-2">
@@ -1074,7 +1056,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                       </div>
 
-                      {/* Stacked Risk Proportion Bar */}
                       <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden flex shadow-inner">
                         <div
                           style={{ width: `${critP}%` }}
@@ -1093,7 +1074,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         />
                       </div>
 
-                      {/* SVG Chronological Threat Trendline */}
                       <div className="relative pt-2">
                         <div className="flex justify-between items-center text-[10px] font-mono text-slate-500 mb-1">
                           <span>RECENT CALL RISK TRAJECTORY (CHRONOLOGICAL)</span>
@@ -1282,7 +1262,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* ACTIVE REAL-TIME THREAT ALERTS & INCIDENT FEED */}
               <div className="p-5 sm:p-6 rounded-2xl bg-[#091219]/90 border border-slate-800/90 shadow-xl backdrop-blur-md flex flex-col gap-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
                   <div className="flex items-center gap-2">
@@ -1344,9 +1323,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* FORENSIC FINDINGS & AI INSIGHTS DECK */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {/* Finding 1: Neural Voice Models */}
                 <div className="p-5 rounded-2xl bg-[#091219]/90 border border-slate-800/90 shadow-xl backdrop-blur-md flex flex-col gap-2.5">
                   <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
                     <BrainCircuit className="w-4 h-4 text-cyan-400" />
@@ -1361,7 +1338,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Finding 2: Social Engineering Patterns */}
                 <div className="p-5 rounded-2xl bg-[#091219]/90 border border-slate-800/90 shadow-xl backdrop-blur-md flex flex-col gap-2.5">
                   <div className="flex items-center gap-2 text-rose-400 text-xs font-mono font-bold uppercase tracking-wider">
                     <ShieldAlert className="w-4 h-4 text-rose-400" />
@@ -1376,7 +1352,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Finding 3: SOC Defensive Mandates */}
                 <div className="p-5 rounded-2xl bg-[#091219]/90 border border-slate-800/90 shadow-xl backdrop-blur-md flex flex-col gap-2.5">
                   <div className="flex items-center gap-2 text-teal-400 text-xs font-mono font-bold uppercase tracking-wider">
                     <ShieldCheck className="w-4 h-4 text-teal-400" />
@@ -1392,7 +1367,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* Ready to analyze live call footer banner */}
               <div className="p-6 sm:p-7 rounded-2xl bg-gradient-to-r from-[#0d1c24] via-[#09151e] to-[#0d1c24] border border-teal-500/30 shadow-[0_4px_32px_rgba(45,212,191,0.12)] flex flex-col sm:flex-row items-center justify-between gap-5 relative overflow-hidden backdrop-blur-md">
                 <div
                   aria-hidden="true"
@@ -1427,7 +1401,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </>
           )}
 
-          {/* ===================== TAB 2: VIRTUAL THREAT MAP OF INDIA ===================== */}
           {activeTab === 'Threat Map' && (
             <IndiaThreatMap
               locations={threatLocations}
@@ -1438,10 +1411,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
             />
           )}
 
-          {/* ===================== TAB 3: CALL HISTORY & AUDIT LOGS ===================== */}
           {activeTab === 'History' && (
             <div className="flex flex-col gap-6 animate-in fade-in duration-200">
-              {/* Header Bar */}
               <div className="p-5 rounded-2xl bg-[#091219]/90 border border-slate-800/90 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 backdrop-blur-md">
                 <div>
                   <h2 className="text-xl sm:text-2xl font-bold font-['Space_Grotesk'] text-white">
@@ -1476,9 +1447,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* Search & Filter Toolbar */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[#091219]/80 border border-slate-800/80 backdrop-blur-md">
-                {/* Search Input */}
                 <div className="relative flex-1 max-w-md">
                   <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
@@ -1499,7 +1468,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   )}
                 </div>
 
-                {/* Status Pills */}
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 font-mono text-xs">
                   {(['ALL', 'Critical', 'Suspicious', 'Safe'] as const).map((filter) => (
                     <button
@@ -1517,7 +1485,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* Full Call History Table */}
               <div className="rounded-2xl bg-[#091219]/95 border border-slate-800/90 shadow-xl overflow-hidden backdrop-blur-md">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left font-mono text-xs">
@@ -1677,10 +1644,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           )}
 
-          {/* ===================== TAB 4: SYSTEM SETTINGS ===================== */}
           {activeTab === 'Settings' && (
             <div className="flex flex-col gap-6 animate-in fade-in duration-200 max-w-5xl mx-auto w-full">
-              {/* Header */}
               <div className="p-5 rounded-2xl bg-[#091219]/90 border border-slate-800/90 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 backdrop-blur-md">
                 <div>
                   <div className="flex items-center gap-2 text-teal-400 text-xs font-mono font-bold tracking-wider uppercase">
@@ -1707,7 +1672,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </button>
               </div>
 
-              {/* Settings Card 1: Acoustic DSP Engine */}
               <div className="p-6 rounded-2xl bg-[#091219]/95 border border-slate-800/90 shadow-xl backdrop-blur-md space-y-5">
                 <div className="flex items-center gap-2.5 border-b border-slate-800/80 pb-3">
                   <Sliders className="w-4 h-4 text-cyan-400" />
@@ -1717,7 +1681,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
-                  {/* Sample Rate */}
                   <div className="space-y-2">
                     <label className="text-slate-300 font-semibold block">
                       Acoustic Ingest Sample Rate
@@ -1749,7 +1712,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* FFT Window Size */}
                   <div className="space-y-2">
                     <label className="text-slate-300 font-semibold block">
                       FFT Window Resolution (Spectrogram Bins)
@@ -1776,7 +1738,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* Settings Card 2: Neural Threat Thresholds */}
               <div className="p-6 rounded-2xl bg-[#091219]/95 border border-slate-800/90 shadow-xl backdrop-blur-md space-y-5">
                 <div className="flex items-center gap-2.5 border-b border-slate-800/80 pb-3">
                   <ShieldCheck className="w-4 h-4 text-teal-400" />
@@ -1786,7 +1747,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
-                  {/* Clone Threshold Slider */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <label className="text-slate-300 font-semibold">
@@ -1811,7 +1771,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     />
                   </div>
 
-                  {/* Scam Threshold Slider */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <label className="text-slate-300 font-semibold">
@@ -1832,7 +1791,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     />
                   </div>
 
-                  {/* Auto-Quarantine Toggle */}
                   <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800">
                     <div>
                       <div className="text-slate-200 font-semibold">Auto-Quarantine Critical Threats</div>
@@ -1846,7 +1804,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     />
                   </div>
 
-                  {/* Audio Alerts Toggle */}
                   <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800">
                     <div>
                       <div className="text-slate-200 font-semibold">Real-Time Threat Chime</div>
@@ -1865,7 +1822,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* Settings Card 3: SIP Trunk Ingest & Telemetry Webhooks */}
               <div className="p-6 rounded-2xl bg-[#091219]/95 border border-slate-800/90 shadow-xl backdrop-blur-md space-y-5">
                 <div className="flex items-center gap-2.5 border-b border-slate-800/80 pb-3">
                   <Radio className="w-4 h-4 text-indigo-400" />
@@ -1928,19 +1884,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </main>
       </div>
 
-      {/* SLIDE-OVER CALL INSPECTION SIDE PANEL */}
       {sidePanelCall && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
             onClick={() => setSidePanelCall(null)}
           />
 
-          {/* Drawer Content */}
           <div className="relative z-10 w-full max-w-lg h-full bg-[#070c11] border-l border-slate-800 text-slate-200 p-6 shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-250 font-['Plus_Jakarta_Sans',sans-serif]">
             <div className="space-y-5">
-              {/* Header */}
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-400">
@@ -1976,7 +1928,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* Call Overview Grid */}
               <div className="grid grid-cols-2 gap-3 font-mono text-xs">
                 <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
                   <span className="text-[10px] text-slate-500 block uppercase">Caller Source</span>
@@ -1988,7 +1939,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* Threat Scores */}
               <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 font-mono text-xs">
                 <div>
                   <div className="flex justify-between text-slate-300 mb-1">
@@ -2017,7 +1967,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* Acoustic Parameters */}
               <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2 font-mono text-xs">
                 <span className="text-[11px] font-bold text-teal-400 uppercase tracking-wider block">
                   Acoustic Feature Telemetry
@@ -2033,7 +1982,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* Forensic Details */}
               <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5">
                 <span className="text-[11px] font-bold text-teal-400 font-mono uppercase tracking-wider block">
                   Forensic Findings & Suggestion
@@ -2044,7 +1992,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
-            {/* Side Panel Footer Actions */}
             <div className="pt-4 border-t border-slate-800 flex flex-col gap-2 font-mono text-xs">
               <button
                 type="button"
@@ -2076,7 +2023,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* Consistent Professional Footer */}
       <Footer />
     </div>
   );

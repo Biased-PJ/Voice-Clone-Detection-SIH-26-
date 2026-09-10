@@ -6,7 +6,6 @@ from app.api import analyse, calls, auth
 
 app = FastAPI(title="Teamrocket Backend")
 
-
 _default_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -25,16 +24,12 @@ app.add_middleware(
 
 app.include_router(analyse.router)
 
-
 app.include_router(calls.router)
 app.include_router(auth.router)
 
 @app.get("/")
 def root():
     return {"message": "team rocket backend running"}
-
-
-
 
 @app.get("/health")
 async def health():

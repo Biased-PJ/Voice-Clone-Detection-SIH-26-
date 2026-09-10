@@ -200,8 +200,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
   const isCritical = currentRecording.aiVoiceScore >= 70 || currentRecording.scamIntentScore >= 70;
   const isSuspicious = !isCritical && (currentRecording.aiVoiceScore >= 40 || currentRecording.scamIntentScore >= 40);
 
-  // Handle custom audio file upload — calls the real backend
-  // POST /api/v1/analyze/audio, not the local mock scorer.
   const handleFileUpload = async (file: File) => {
     setSelectedFile(file);
     setIsAnalyzing(true);
@@ -211,9 +209,7 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
     setAnalysisError(null);
 
     try {
-      // Local decode is still used for duration/sample-rate metadata and the
-      // waveform player's audio URL — that part is genuinely computed from
-      // the file, not mocked.
+
       const { audioUrl: generatedUrl, result: localMeta } = await analyzeAudioFile(file);
       setAudioUrl(generatedUrl);
 
@@ -373,7 +369,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
         </div>
       )}
 
-      {/* ===================== UNIVERSAL APP SIDEBAR ===================== */}
       <AppSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -393,10 +388,8 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
         isOverlay={true}
       />
 
-      {/* ===================== CLEAN, UNCLUSTERED HEADER ===================== */}
       <header className="relative z-20 border-b border-slate-800/80 bg-[#070b10]/90 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3 sm:gap-4">
-          {/* Sidebar Toggle Button */}
           <button
             type="button"
             id="recorded-analysis-sidebar-toggle-btn"
@@ -431,7 +424,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
 
           <div className="h-4 w-px bg-slate-800 hidden sm:block" />
 
-          {/* Active File Title */}
           <div className="flex items-center gap-2.5">
             <FileAudio className="w-4 h-4 text-teal-400" />
             <div>
@@ -442,9 +434,7 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
           </div>
         </div>
 
-        {/* Clean Header Actions */}
         <div className="flex items-center gap-3">
-          {/* Upload Button */}
           <input
             ref={fileInputRef}
             type="file"
@@ -471,7 +461,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
             <span>{isAnalyzing ? 'Analyzing Audio...' : 'Upload Audio File'}</span>
           </button>
 
-          {/* Export PDF */}
           <button
             type="button"
             onClick={handleDownloadPdf}
@@ -484,7 +473,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
         </div>
       </header>
 
-      {/* ===================== RECORDING SELECTION STRIP ===================== */}
       <div className="relative z-10 border-b border-slate-800/50 bg-[#06090d]/60 px-4 sm:px-8 py-2 flex items-center justify-between gap-3 overflow-x-auto">
         <span className="text-[11px] font-mono text-slate-400 uppercase shrink-0">
           Optional sample recordings:
@@ -515,7 +503,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
         </div>
       </div>
 
-      {/* ===================== DRAG & DROP UPLOAD DROPZONE ===================== */}
       <div className="relative z-10 max-w-[1360px] w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div
           onDragOver={handleDragOver}
@@ -545,10 +532,7 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
         </div>
       </div>
 
-      {/* ===================== MAIN UNCLUSTERED WORKSPACE ===================== */}
-      {/* Exactly like live call: Waveform Pitch Player + Two Scores /100 + One Column for Suggestions */}
       <main className="relative z-10 flex-1 max-w-[1360px] w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col lg:flex-row gap-6 items-start">
-        {/* ===================== LEFT: THE TWO SCORES + THE WAVEFORM PLAYER ===================== */}
         <div className="flex-1 w-full flex flex-col gap-6">
           {analysisError && (
             <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5">
@@ -556,9 +540,7 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
               <span>{analysisError}</span>
             </div>
           )}
-          {/* ===================== THE TWO SCORES OUT OF 100 ===================== */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* SCORE 1: AI VOICE SCORE */}
             <div className="p-5 rounded-2xl bg-[#080d13] border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.25)] flex flex-col justify-between">
               <div className="flex items-center justify-between pb-2 border-b border-slate-800/70">
                 <div className="flex items-center gap-2">
@@ -599,7 +581,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
                 </span>
               </div>
 
-              {/* Progress bar */}
               <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden mb-2">
                 <div
                   className={`h-full rounded-full transition-all duration-700 ${currentRecording.aiVoiceScore >= 70
@@ -617,7 +598,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
               </p>
             </div>
 
-            {/* SCORE 2: SCAM INTENT SCORE */}
             <div className="p-5 rounded-2xl bg-[#080d13] border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.25)] flex flex-col justify-between">
               <div className="flex items-center justify-between pb-2 border-b border-slate-800/70">
                 <div className="flex items-center gap-2">
@@ -658,7 +638,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
                 </span>
               </div>
 
-              {/* Progress bar */}
               <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden mb-2">
                 <div
                   className={`h-full rounded-full transition-all duration-700 ${currentRecording.scamIntentScore >= 70
@@ -677,7 +656,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
             </div>
           </div>
 
-          {/* ===================== THE RECORDED WAVEFORM PLAYER ===================== */}
           <RecordedWaveformPlayer
             audioUrl={audioUrl || undefined}
             fileName={currentRecording.name}
@@ -688,10 +666,8 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
           />
         </div>
 
-        {/* ===================== RIGHT: THE COLUMN FOR SUGGESTIONS ===================== */}
         <aside className="w-full lg:w-[420px] shrink-0 flex flex-col gap-4">
           <div className="p-5 rounded-2xl bg-[#080d13] border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.25)] flex flex-col">
-            {/* Header of Suggestions */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-teal-500/10 border border-teal-500/30 text-teal-400">
@@ -712,7 +688,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
               </span>
             </div>
 
-            {/* List of Suggestions */}
             <div className="mt-4 space-y-3">
               {currentRecording.suggestions.map((sug) => {
                 const isCrit = sug.level === 'critical';
@@ -791,7 +766,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
               })}
             </div>
 
-            {/* Bottom Actions */}
             <div className="mt-5 pt-4 border-t border-slate-800/80 flex flex-col gap-2">
               <button
                 type="button"
@@ -815,7 +789,6 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
         </aside>
       </main>
 
-      {/* Consistent Professional Footer */}
       <Footer />
     </div>
   );

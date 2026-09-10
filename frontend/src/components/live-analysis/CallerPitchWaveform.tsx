@@ -62,11 +62,9 @@ export const CallerPitchWaveform: React.FC<CallerPitchWaveformProps> = ({
 
       ctx.clearRect(0, 0, width, height);
 
-      // Deep dark canvas background
       ctx.fillStyle = '#060a0f';
       ctx.fillRect(0, 0, width, height);
 
-      // Subtle horizontal center baseline
       const centerY = height / 2;
       ctx.strokeStyle = 'rgba(51, 65, 85, 0.3)';
       ctx.lineWidth = 1;
@@ -83,7 +81,6 @@ export const CallerPitchWaveform: React.FC<CallerPitchWaveformProps> = ({
 
       phase += 0.04;
 
-      // Calculate pseudo pitch variation for display
       if (frameCount % 15 === 0) {
         if (isActive) {
           const jitter = (Math.sin(phase * 1.5) + Math.cos(phase * 0.7)) * (isCritical ? 18 : 8);
@@ -95,7 +92,6 @@ export const CallerPitchWaveform: React.FC<CallerPitchWaveformProps> = ({
         }
       }
 
-      // Draw Waveform
       ctx.lineWidth = 2.5;
       ctx.strokeStyle = primaryColor;
       ctx.shadowColor = glowColor;
@@ -113,11 +109,11 @@ export const CallerPitchWaveform: React.FC<CallerPitchWaveformProps> = ({
             const index = Math.floor((i / 120) * bufferLength);
             v = (dataArray[index] - 128) / 128;
           } else {
-            // Simulated speech waveform with pitch fundamental
+
             const harmonic1 = Math.sin(i * 0.12 + phase * 2.5) * 0.45;
             const harmonic2 = Math.sin(i * 0.24 + phase * 1.2) * 0.25;
             const harmonic3 = Math.cos(i * 0.06 + phase * 0.8) * 0.2;
-            const envelope = Math.sin((i / 120) * Math.PI); // Window envelope
+            const envelope = Math.sin((i / 120) * Math.PI);
             v = (harmonic1 + harmonic2 + harmonic3) * envelope;
           }
         }
@@ -135,10 +131,8 @@ export const CallerPitchWaveform: React.FC<CallerPitchWaveformProps> = ({
 
       ctx.stroke();
 
-      // Reset shadow
       ctx.shadowBlur = 0;
 
-      // Draw secondary pitch contour ribbon
       if (isActive) {
         ctx.beginPath();
         ctx.lineWidth = 1.2;
@@ -168,7 +162,6 @@ export const CallerPitchWaveform: React.FC<CallerPitchWaveformProps> = ({
 
   return (
     <div className="relative w-full rounded-2xl bg-[#070c12] border border-slate-800/90 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
-      {/* Top Header of the single waveform */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800/80 bg-[#091118]/80 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <span
@@ -204,11 +197,9 @@ export const CallerPitchWaveform: React.FC<CallerPitchWaveformProps> = ({
         </div>
       </div>
 
-      {/* The Single Waveform Canvas */}
       <div ref={containerRef} className="w-full h-64 sm:h-72 relative">
         <canvas ref={canvasRef} className="w-full h-full block" />
 
-        {/* Overlay badges in bottom corner */}
         <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between pointer-events-none">
           <div className="flex items-center gap-2">
             <span

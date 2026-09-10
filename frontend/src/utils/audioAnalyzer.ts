@@ -7,7 +7,6 @@ export async function analyzeAudioFile(file: File): Promise<{
   const audioUrl = URL.createObjectURL(file);
   const fileNameLower = file.name.toLowerCase();
 
-  // Heuristic indicator detection
   const isDemoAi =
     fileNameLower.includes('ai') ||
     fileNameLower.includes('clone') ||
@@ -64,7 +63,6 @@ export async function analyzeAudioFile(file: File): Promise<{
     console.warn('Web Audio decoding fallback used:', err);
   }
 
-  // Determine classification
   const isAi = isDemoAi ? true : isDemoHuman ? false : calculatedZcr > 0.12 || Math.random() > 0.5;
   const confidenceScore = isAi ? Math.floor(92 + Math.random() * 7) : Math.floor(94 + Math.random() * 5);
   const aiVoiceScore = isAi ? confidenceScore : Math.floor(2 + Math.random() * 5);

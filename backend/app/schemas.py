@@ -4,7 +4,7 @@ from typing import List, Optional
 class AnalyzeRequest(BaseModel):
     session_id: str
     transcript: str
-    
+
     language: str
 
 class AnalyzeResponse(BaseModel):
@@ -30,7 +30,6 @@ class CallSessionResponse(BaseModel):
     language: str
     status: str
 
-
     started_at: str
     ended_at: Optional[str] = None
     threat_location: Optional[dict] = None
@@ -55,12 +54,11 @@ class UserLoginRequest(BaseModel):
     password: str
 
 class GoogleAuthRequest(BaseModel):
-    credential: str  
+    credential: str
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-
 
 class UserResponse(BaseModel):
     user_id: str

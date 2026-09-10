@@ -532,17 +532,17 @@ export function convertAnalysisToIntelligenceRecord(analysis: any): CallIntellig
   const aiVoiceScore = Math.round(synthProb * 100);
   const scamIntentScore = riskScore;
   const riskLevel = (analysis.risk_level || (riskScore >= 75 ? 'CRITICAL' : riskScore >= 45 ? 'MEDIUM' : 'LOW')).toUpperCase();
-  
+
   const isCloned = synthProb >= 0.5 || aiVoiceScore >= 60;
   const isHighRisk = riskLevel === 'CRITICAL' || riskLevel === 'HIGH' || riskScore >= 70;
   const isSuspicious = riskLevel === 'MEDIUM' || (riskScore >= 40 && riskScore < 70);
-  
+
   const classification: 'Critical' | 'Suspicious' | 'Safe' = isHighRisk ? 'Critical' : isSuspicious ? 'Suspicious' : 'Safe';
-  
+
   let verdictType: 'Cloned' | 'Spam' | 'Suspicious' | 'Safe' = 'Safe';
   let verdictReason = 'Verified organic acoustic speech without detected social engineering indicators.';
   let primaryEvidence = 'Harmonic ratio and biological pitch jitter within normal human speech parameters.';
-  
+
   if (isCloned && isHighRisk) {
     verdictType = 'Cloned';
     verdictReason = `High-confidence synthetic voice clone detected (${aiVoiceScore}% probability) combined with coercive communication script.`;
@@ -561,10 +561,9 @@ export function convertAnalysisToIntelligenceRecord(analysis: any): CallIntellig
     primaryEvidence = analysis.risk_factors?.[0] ? `Identified trigger: ${analysis.risk_factors[0]}` : `Moderate urgency or unverified caller pattern.`;
   }
 
-  // Parse actual transcript into structured turns if available
   const rawTranscript = typeof analysis.transcript === 'string' ? analysis.transcript.trim() : '';
   const transcripts: CallIntelligenceRecord['transcripts'] = [];
-  
+
   if (rawTranscript) {
     const sentences = rawTranscript.split(/(?<=[.?!])\s+/).filter(Boolean);
     sentences.forEach((s, idx) => {
@@ -582,7 +581,7 @@ export function convertAnalysisToIntelligenceRecord(analysis: any): CallIntellig
       });
     });
   } else {
-    // If no raw transcript was captured, provide an honest operational turn based on recorded audio telemetry
+
     transcripts.push({
       id: 'turn-1',
       speaker: 'Caller',
@@ -595,7 +594,6 @@ export function convertAnalysisToIntelligenceRecord(analysis: any): CallIntellig
     });
   }
 
-  // Generate flags directly from actual risk factors
   const flags: CallIntelligenceRecord['flags'] = (analysis.risk_factors || []).map((factor: string, idx: number) => ({
     id: `flag-act-${idx + 1}`,
     title: factor,
@@ -654,7 +652,6 @@ export function getCallIntelligenceRecord(callId: string, customAnalyses?: any[]
     return CALL_INTELLIGENCE_RECORDS[normalizedId];
   }
 
-  // Check if any real user analysis matches this ID
   if (customAnalyses && customAnalyses.length > 0) {
     const matched = customAnalyses.find((a: any) => {
       const sid = (a.session_id || a.id || '').toUpperCase();
@@ -665,7 +662,6 @@ export function getCallIntelligenceRecord(callId: string, customAnalyses?: any[]
     }
   }
 
-  // If no match found, safely fallback to the primary verified benchmark incident CALL-2289
   return CALL_INTELLIGENCE_RECORDS['CALL-2289'];
 }
 

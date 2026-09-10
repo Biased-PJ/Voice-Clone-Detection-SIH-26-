@@ -5,8 +5,7 @@ export interface UserProfile {
   avatar?: string;
   provider: 'google' | 'email';
   role?: string;
-  // Authoritative admin flag, always sourced from the backend (GET /api/v1/auth/me)
-  // — never derived from the client-side job-title `role` field above.
+
   isAdmin?: boolean;
   createdAt?: string;
 }
@@ -20,9 +19,9 @@ export interface AudioAnalysisResult {
   sampleRate: number;
   isAiGenerated: boolean;
   confidenceScore: number;
-  // Two core scores (out of 100)
-  aiVoiceScore: number; // 0-100 based on frequency, pitch, vocoder artifacts
-  scamIntentScore: number; // 0-100 based on conversational content, urgency, social engineering
+
+  aiVoiceScore: number;
+  scamIntentScore: number;
   threatCategory: string;
   recommendedAction: string;
   analysisTimestamp: string;

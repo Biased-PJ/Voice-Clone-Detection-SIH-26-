@@ -8,10 +8,9 @@ from app.schemas import CallStartRequest, CallSessionResponse
 
 router = APIRouter()
 
-
 @router.post("/api/v1/calls/start", response_model=CallSessionResponse)
 async def start_call(payload: CallStartRequest, current_user=Depends(get_current_user)):
-    
+
     session_id = str(uuid.uuid4())
     session = {
         "session_id": session_id,
@@ -25,7 +24,6 @@ async def start_call(payload: CallStartRequest, current_user=Depends(get_current
     session.pop("_id", None)
     return session
 
-
 @router.get("/api/v1/calls/{session_id}", response_model=CallSessionResponse)
 async def get_call(session_id: str, current_user=Depends(get_current_user)):
     session = await db["call_sessions"].find_one({"session_id": session_id})
@@ -35,7 +33,6 @@ async def get_call(session_id: str, current_user=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Not your session")
     session.pop("_id", None)
     return session
-
 
 @router.post("/api/v1/calls/{session_id}/end", response_model=CallSessionResponse)
 async def end_call(session_id: str, current_user=Depends(get_current_user), payload: dict | None = Body(default=None)):
@@ -64,7 +61,7 @@ async def end_call(session_id: str, current_user=Depends(get_current_user), payl
             pass
 
     payload = payload or {}
-    # Accept both { ...result } and { "result": { ...result } }.
+
     result = payload.get("result") if isinstance(payload.get("result"), dict) else payload
     result = result if isinstance(result, dict) else {}
 
@@ -85,7 +82,6 @@ async def end_call(session_id: str, current_user=Depends(get_current_user), payl
     update["analysis_completed"] = True
     await db["call_sessions"].update_one({"session_id": session_id}, {"$set": update})
 
-    # Guarantee exactly one history/intelligence document for every ended live call.
     final_session = await db["call_sessions"].find_one({"session_id": session_id})
     final_result = await db["analysis_results"].find_one({
         "session_id": session_id,
@@ -127,7 +123,6 @@ async def end_call(session_id: str, current_user=Depends(get_current_user), payl
     result_session.pop("_id", None)
     return result_session
 
-
 @router.get("/api/v1/calls")
 async def list_calls(current_user=Depends(get_current_user)):
     """Return all real analyses, including every completed live call exactly once."""
@@ -142,8 +137,6 @@ async def list_calls(current_user=Depends(get_current_user)):
     session_cursor = db["call_sessions"].find(session_filter).sort("started_at", -1)
     call_sessions = await session_cursor.to_list(length=1000)
 
-    # Backfill the response for old/failed live finalizations. This does not
-    # create DB records here; the /end endpoint is the authoritative writer.
     analysis_ids = {str(x.get("session_id")) for x in analysis_results if x.get("session_id")}
     for s in call_sessions:
         sid = s.get("session_id")
@@ -171,8 +164,6 @@ async def list_calls(current_user=Depends(get_current_user)):
                 "scam_reasons": s.get("scam_reasons", []) or [],
             })
 
-    # Count distinct real analyzed calls. A live session counts once; recorded
-    # analyses without a call session count once as well.
     real_ids = {str(x.get("session_id")) for x in analysis_results if x.get("session_id")}
     anonymous_count = sum(1 for x in analysis_results if not x.get("session_id"))
     total_analysis_results = len(real_ids) + anonymous_count

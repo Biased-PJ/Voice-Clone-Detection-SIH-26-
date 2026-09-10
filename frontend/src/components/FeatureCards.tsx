@@ -36,7 +36,6 @@ export const FeatureCards: React.FC<FeatureCardsProps> = ({
 
   return (
     <div className="flex flex-wrap sm:flex-nowrap items-center gap-4 sm:gap-5 mt-8 sm:mt-10">
-      {/* 1. Upload Card */}
       <button
         type="button"
         id="step-card-upload"
@@ -72,7 +71,6 @@ export const FeatureCards: React.FC<FeatureCardsProps> = ({
         </div>
       </button>
 
-      {/* 2. Analyze Card */}
       <button
         type="button"
         id="step-card-analyze"
@@ -105,7 +103,6 @@ export const FeatureCards: React.FC<FeatureCardsProps> = ({
         </div>
       </button>
 
-      {/* 3. Download Card */}
       <button
         type="button"
         id="step-card-download"

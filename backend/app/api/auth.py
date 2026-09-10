@@ -22,10 +22,8 @@ ADMIN_EMAILS = {
     if e.strip()
 }
 
-
 def _role_for(email: str) -> str:
     return "admin" if email.lower() in ADMIN_EMAILS else "user"
-
 
 @router.post("/api/v1/auth/register", response_model=UserResponse)
 async def register(payload: UserRegisterRequest):
@@ -45,7 +43,6 @@ async def register(payload: UserRegisterRequest):
     await db["users"].insert_one(user)
     return {"user_id": user_id, "name": payload.name, "email": payload.email, "role": user["role"]}
 
-
 @router.post("/api/v1/auth/login", response_model=TokenResponse)
 async def login(payload: UserLoginRequest):
     user = await db["users"].find_one({"email": payload.email})
@@ -55,13 +52,12 @@ async def login(payload: UserLoginRequest):
     token = create_access_token(user["user_id"])
     return {"access_token": token}
 
-
 @router.get("/api/v1/auth/google/status")
 async def google_auth_status():
     """Non-secret readiness check for the Google OAuth integration."""
     client_configured = bool(os.getenv("GOOGLE_CLIENT_ID"))
     try:
-        from google.oauth2 import id_token as _google_id_token  # noqa: F401
+        from google.oauth2 import id_token as _google_id_token
         package_available = True
     except ImportError:
         package_available = False
@@ -71,7 +67,6 @@ async def google_auth_status():
         "backend_configured": client_configured,
         "package_available": package_available,
     }
-
 
 @router.post("/api/v1/auth/google", response_model=TokenResponse)
 async def google_auth(payload: GoogleAuthRequest):
@@ -121,13 +116,12 @@ async def google_auth(payload: GoogleAuthRequest):
         }
         await db["users"].insert_one(user)
     elif user.get("role") != "admin" and _role_for(email) == "admin":
-        # promote if the account was later added to ADMIN_EMAILS
+
         await db["users"].update_one({"email": email}, {"$set": {"role": "admin"}})
         user["role"] = "admin"
 
     token = create_access_token(user["user_id"])
     return {"access_token": token}
-
 
 @router.get("/api/v1/auth/me", response_model=UserResponse)
 async def get_me(current_user=Depends(get_current_user)):

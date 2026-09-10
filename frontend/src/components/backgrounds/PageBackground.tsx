@@ -6,12 +6,6 @@ interface PageBackgroundProps {
   variant: BackgroundVariant;
 }
 
-/**
- * One shared animation stylesheet + a per-variant SVG/DOM layer, so each
- * page gets a distinct accent color and motion pattern without five
- * separate heavy components. Everything animates via transform/opacity
- * only (no layout thrash), so it's cheap even on low-end machines.
- */
 const KEYFRAMES = `
 @keyframes pb-scanline {
   0% { transform: translateY(-10%); opacity: 0; }
@@ -43,7 +37,6 @@ const KEYFRAMES = `
 
 const DashboardBg: React.FC = () => (
   <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#060a0e]">
-    {/* faint grid */}
     <div
       className="absolute inset-0 opacity-[0.14]"
       style={{
@@ -52,7 +45,6 @@ const DashboardBg: React.FC = () => (
         backgroundSize: '48px 48px',
       }}
     />
-    {/* vertical scanning beam */}
     <div
       className="absolute left-0 right-0 h-40 bg-gradient-to-b from-transparent via-teal-400/25 to-transparent"
       style={{ animation: 'pb-scanline 9s linear infinite' }}
@@ -74,7 +66,6 @@ const LiveBg: React.FC = () => (
       aria-hidden="true"
       className="absolute -top-24 right-1/4 w-[600px] h-[600px] rounded-full bg-amber-500/[0.06] blur-[140px]"
     />
-    {/* concentric "live" pulse rings, staggered */}
     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
       {[0, 1.3, 2.6].map((delay) => (
         <div
@@ -103,7 +94,6 @@ const RecordedBg: React.FC = () => (
       className="absolute bottom-0 right-0 w-[460px] h-[460px] rounded-full bg-fuchsia-500/[0.07] blur-[130px]"
       style={{ animation: 'pb-drift 18s ease-in-out infinite reverse' }}
     />
-    {/* slow drifting waveform ribbon */}
     <svg
       viewBox="0 0 1600 400"
       preserveAspectRatio="none"

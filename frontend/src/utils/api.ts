@@ -1,6 +1,4 @@
-// Thin fetch wrapper around the FastAPI backend.
-// The JWT is passed in explicitly by callers — it lives only in React state
-// (see App.tsx), never in localStorage, per the auth design.
+
 export const API_BASE_URL = (
   (import.meta as any).env?.VITE_API_BASE_URL ||
   'https://voice-clone-detection-sih-26.onrender.com'
@@ -31,13 +29,12 @@ async function handle<T>(res: Response): Promise<T> {
       const body = await res.json();
       detail = body.detail || JSON.stringify(body);
     } catch {
-      /* ignore non-JSON error bodies */
+
     }
     throw new Error(`API error ${res.status}: ${detail}`);
   }
   return res.json() as Promise<T>;
 }
-
 
 export interface GoogleAuthStatus {
   configured: boolean;
@@ -85,8 +82,6 @@ export interface MeResponse {
   role: string;
 }
 
-// The authoritative source for role — never trust a client-side "role"
-// field (e.g. a job-title dropdown) for admin/demo-data gating.
 export async function getMe(token: string): Promise<MeResponse> {
   const res = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
     headers: authHeaders(token),
@@ -174,10 +169,7 @@ export async function endCallSession(sessionId: string, token: string, result?: 
   });
   return handle(res);
 }
-/**
- * Open the authenticated WebSocket used by the Live Analysis page.
- * HTTP(S) API URLs are converted to WS(S) automatically.
- */
+
 export function createLiveAnalysisSocket(
   sessionId: string,
   language: string,

@@ -98,11 +98,7 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
   onViewLanding,
   onNavigate,
 }) => {
-  // This page's rich transcript/flag/telemetry view only exists for the
-  // seeded demo records (is_demo: true in Mongo). Real users' own uploads
-  // only produce an AnalyzeResponse (risk score + suggestion), which doesn't
-  // have that shape yet — so rather than fake a transcript for them, real
-  // (non-admin) users get an honest empty state instead of CALL-2289.
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(initialCallId);
   const [currentCallId, setCurrentCallId] = useState(initialCallId);
@@ -127,7 +123,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
   const flagsScrollRef = useRef<HTMLDivElement>(null);
 
-  // Load real user analyses from backend if logged in
   useEffect(() => {
     if (authToken) {
       getMyCalls(authToken)
@@ -171,7 +166,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
     setHighlightedTurnId(null);
   };
 
-  // Jump from Flag to Transcript turn
   const handleJumpToTranscript = (flag: CaughtFlag) => {
     setSelectedFlagId(flag.id);
     const matchingTurn = record.transcripts.find((t) => t.flagId === flag.id);
@@ -184,7 +178,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
     }
   };
 
-  // Jump from Transcript turn to Flag
   const handleJumpToFlag = (flagId: string) => {
     setSelectedFlagId(flagId);
     const element = document.getElementById(`flag-card-${flagId}`);
@@ -227,13 +220,10 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
   const isSuspicious = record.classification === 'Suspicious';
   const isSafe = record.classification === 'Safe';
 
-
-
   return (
     <div className="min-h-screen bg-[#060a0e] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] relative overflow-x-hidden selection:bg-teal-500/30 selection:text-teal-200">
       <PageBackground variant="call-intel" />
 
-      {/* Global Ambient Glows */}
       <div
         aria-hidden="true"
         className="pointer-events-none fixed -top-40 left-1/4 w-[700px] h-[700px] rounded-full bg-cyan-500/5 blur-[140px] z-0"
@@ -243,7 +233,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
         className="pointer-events-none fixed top-1/2 -right-40 w-[600px] h-[600px] rounded-full bg-teal-500/5 blur-[140px] z-0"
       />
 
-      {/* Global Sidebar */}
       <AppSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -264,7 +253,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
         }}
       />
 
-      {/* Header Navigation Bar */}
       <header className="sticky top-0 z-40 w-full bg-[#060a0e]/90 backdrop-blur-xl border-b border-slate-800/80 px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between transition-all">
         <div className="flex items-center gap-3">
           <button
@@ -360,15 +348,12 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
         </div>
       </header>
 
-      {/* Main Container - Breathable, Unclustered Layout */}
       <main className="flex-1 w-full max-w-[1550px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col gap-6 relative z-10">
 
-        {/* TOP SECTION: Call ID Input & Metadata Ribbon */}
         <section
           aria-label="Call ID Search & Telemetry"
           className="w-full bg-[#0a1118]/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-5 sm:p-6 shadow-[0_4px_30px_rgba(0,0,0,0.35)] transition-all"
         >
-          {/* Header & Description */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pb-5 border-b border-slate-800/80">
             <div>
               <div className="flex items-center gap-2">
@@ -385,7 +370,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
               </p>
             </div>
 
-            {/* Actions for Loaded Call */}
             <div className="flex items-center gap-2 self-start md:self-center">
               <button
                 type="button"
@@ -411,7 +395,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
             </div>
           </div>
 
-          {/* Search Input Box */}
           <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -437,7 +420,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
             </button>
           </form>
 
-          {/* Real backend analyses */}
           <div className="mt-4 flex flex-wrap items-center gap-2 pt-3 border-t border-slate-800/60">
             {userAnalyses.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 ml-0 sm:ml-2 pt-2 sm:pt-0 sm:border-l sm:border-slate-800 sm:pl-3 w-full sm:w-auto">
@@ -473,7 +455,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
             )}
           </div>
 
-          {/* Loaded Call Metadata Ribbon */}
           <div className="mt-5 pt-4 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs font-mono">
             <div className="bg-[#070d13] rounded-xl p-3 border border-slate-800/80">
               <span className="text-slate-500 block text-[10px] uppercase">Loaded Call ID</span>
@@ -520,7 +501,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
             </div>
           </div>
 
-          {/* AI Model Summary Note */}
           {record.summary && (
             <div className="mt-4 p-3.5 rounded-xl bg-slate-900/70 border border-slate-800 text-xs text-slate-300 flex items-start gap-2.5">
               <Bot className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
@@ -541,7 +521,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
             <p className="mt-1 text-xs text-slate-500">Real call intelligence, evidence, transcript, and risk factors will appear after a backend analysis exists.</p>
           </div>
         ) : <>
-          {/* EVIDENCE & CLASSIFICATION BREAKDOWN CARD */}
           <section
             aria-label="Evidence and Classification Breakdown"
             className="w-full bg-[#0a1118]/90 backdrop-blur-md rounded-2xl border border-slate-800/90 p-5 sm:p-6 shadow-xl flex flex-col gap-4"
@@ -598,7 +577,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
-              {/* Why This Call Was Classified */}
               <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col gap-1.5">
                 <div className="text-[11px] font-bold text-teal-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-teal-400" />
@@ -609,7 +587,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
                 </p>
               </div>
 
-              {/* Actual Evidence from Audio / Transcript */}
               <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col gap-1.5">
                 <div className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-cyan-400" />
@@ -627,15 +604,12 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
             </div>
           </section>
 
-          {/* MAIN SPLIT: Left = Transcript | Right = Caught Flags */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-            {/* LEFT COLUMN: Call Transcript (7 Columns on large screens) */}
             <section
               aria-label="Call Transcript"
               className="lg:col-span-7 bg-[#0a1118]/80 backdrop-blur-md rounded-2xl border border-slate-800/90 flex flex-col shadow-[0_4px_30px_rgba(0,0,0,0.35)] overflow-hidden"
             >
-              {/* Transcript Panel Header */}
               <div className="p-4 sm:p-5 border-b border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#070d13]">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400">
@@ -655,7 +629,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* Search within transcript */}
                   <div className="relative">
                     <input
                       type="text"
@@ -679,7 +652,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
                 </div>
               </div>
 
-              {/* Speaker Legend */}
               <div className="px-5 py-2.5 bg-[#060b10] border-b border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-400">
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1.5">
@@ -694,7 +666,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
                 <span className="text-slate-500">Carrier: {record.carrier}</span>
               </div>
 
-              {/* Dialogue Turns List */}
               <div
                 ref={transcriptScrollRef}
                 className="p-4 sm:p-6 flex flex-col gap-4 max-h-[700px] overflow-y-auto divide-y divide-slate-800/40"
@@ -724,7 +695,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
                               : 'hover:bg-slate-900/30 border border-transparent'
                           }`}
                       >
-                        {/* Turn Meta Row */}
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2">
                             <div
@@ -771,7 +741,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
                           </div>
                         </div>
 
-                        {/* Text Body with Flag Highlight */}
                         <div className="text-xs sm:text-sm text-slate-200 leading-relaxed pl-8">
                           {turn.highlightPhrase && turn.text.includes(turn.highlightPhrase) ? (
                             <>
@@ -796,12 +765,10 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
               </div>
             </section>
 
-            {/* RIGHT COLUMN: Flags Caught from Call Transcript (5 Columns on large screens) */}
             <section
               aria-label="Caught Threat Flags"
               className="lg:col-span-5 bg-[#0a1118]/80 backdrop-blur-md rounded-2xl border border-slate-800/90 flex flex-col shadow-[0_4px_30px_rgba(0,0,0,0.35)] overflow-hidden"
             >
-              {/* Flags Panel Header */}
               <div className="p-4 sm:p-5 border-b border-slate-800/80 bg-[#070d13] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
@@ -820,7 +787,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
                   </div>
                 </div>
 
-                {/* Filter Tabs */}
                 <div className="flex items-center gap-1 bg-[#091117] p-1 rounded-xl border border-slate-800">
                   {(['all', 'critical', 'high'] as const).map((filter) => (
                     <button
@@ -838,7 +804,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
                 </div>
               </div>
 
-              {/* Flags List Container */}
               <div
                 ref={flagsScrollRef}
                 className="p-4 sm:p-5 flex flex-col gap-4 max-h-[700px] overflow-y-auto"
@@ -866,7 +831,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
                                 : 'bg-[#0a1218] border-teal-500/30 hover:border-teal-500/60'
                           }`}
                       >
-                        {/* Flag Card Top Row */}
                         <div className="flex items-start justify-between gap-2 mb-2.5">
                           <div className="flex items-center gap-2">
                             <span className="w-5 h-5 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-[10px] font-mono font-bold text-slate-300">
@@ -893,17 +857,14 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
                           </span>
                         </div>
 
-                        {/* Flag Title */}
                         <h3 className="text-sm font-bold text-slate-100 mb-2 font-['Space_Grotesk'] tracking-wide">
                           {flag.title}
                         </h3>
 
-                        {/* Quote from Transcript */}
                         <div className="p-2.5 rounded-lg bg-black/40 border border-slate-800/80 text-xs font-mono text-amber-200/90 mb-3 italic leading-relaxed">
                           "{flag.snippet}"
                         </div>
 
-                        {/* Triggered Rule */}
                         <div className="mb-2">
                           <span className="text-[10px] font-mono uppercase text-slate-500 block mb-0.5">
                             Triggered NLP Signature
@@ -913,12 +874,10 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
                           </code>
                         </div>
 
-                        {/* Explanation */}
                         <p className="text-xs text-slate-300 mb-3 leading-relaxed">
                           {flag.explanation}
                         </p>
 
-                        {/* Recommended Countermeasure Box */}
                         <div className="p-2.5 rounded-lg bg-teal-950/20 border border-teal-500/20 text-xs text-teal-200 flex items-start gap-2 mb-3">
                           <ShieldAlert className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
                           <div>
@@ -929,7 +888,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
                           </div>
                         </div>
 
-                        {/* Action Button: Jump to Transcript Turn on Left */}
                         <button
                           type="button"
                           onClick={() => handleJumpToTranscript(flag)}
@@ -949,7 +907,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
         </>}
       </main>
 
-      {/* Evidence Deep-Dive Modal */}
       {selectedModalEvidence && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="rounded-2xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border bg-[#0d161d] border-slate-800 text-slate-200 shadow-[0_25px_60px_rgba(0,0,0,0.9)] relative">
@@ -1022,7 +979,6 @@ export const CallIntelligencePage: React.FC<CallIntelligencePageProps> = ({
         </div>
       )}
 
-      {/* Unified Consistent Footer */}
       <Footer />
     </div>
   );

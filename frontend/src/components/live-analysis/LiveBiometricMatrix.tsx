@@ -55,14 +55,12 @@ export const LiveBiometricMatrix: React.FC<LiveBiometricMatrixProps> = ({
 
   const themeColor = isCritical ? '#f43f5e' : isSuspicious ? '#f59e0b' : '#2dd4bf';
 
-  // Circular gauge math
   const radius = 64;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (threatScore / 100) * circumference;
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Real-time Threat Gauge & Severity Card */}
       <div className="p-5 sm:p-6 rounded-2xl bg-[#091219]/95 border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.4)] backdrop-blur-md">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -90,10 +88,8 @@ export const LiveBiometricMatrix: React.FC<LiveBiometricMatrixProps> = ({
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-          {/* Circular SVG Meter */}
           <div className="relative w-36 h-36 shrink-0 flex items-center justify-center">
             <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 160 160">
-              {/* Background ring */}
               <circle
                 cx="80"
                 cy="80"
@@ -102,7 +98,6 @@ export const LiveBiometricMatrix: React.FC<LiveBiometricMatrixProps> = ({
                 strokeWidth="12"
                 fill="none"
               />
-              {/* Progress Arc */}
               <circle
                 cx="80"
                 cy="80"
@@ -117,7 +112,6 @@ export const LiveBiometricMatrix: React.FC<LiveBiometricMatrixProps> = ({
               />
             </svg>
 
-            {/* Inner Content */}
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
               <span
                 className="text-3xl font-extrabold tracking-tight font-['Space_Grotesk']"
@@ -131,7 +125,6 @@ export const LiveBiometricMatrix: React.FC<LiveBiometricMatrixProps> = ({
             </div>
           </div>
 
-          {/* Key Metric Breakdowns */}
           <div className="grid grid-cols-2 gap-3 w-full">
             <div className="p-2.5 rounded-xl bg-[#060a0f] border border-slate-800">
               <div className="text-[10px] font-mono text-slate-400">Clone Probability</div>
@@ -164,7 +157,6 @@ export const LiveBiometricMatrix: React.FC<LiveBiometricMatrixProps> = ({
         </div>
       </div>
 
-      {/* 5-Checkpoint Verification Matrix */}
       <div className="p-5 sm:p-6 rounded-2xl bg-[#091219]/95 border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.4)] backdrop-blur-md">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -240,7 +232,6 @@ export const LiveBiometricMatrix: React.FC<LiveBiometricMatrixProps> = ({
         </div>
       </div>
 
-      {/* Incident Mitigation Action Deck */}
       <div className="p-5 sm:p-6 rounded-2xl bg-[#091219]/95 border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.4)] backdrop-blur-md">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-mono tracking-wider text-slate-300 uppercase font-semibold">

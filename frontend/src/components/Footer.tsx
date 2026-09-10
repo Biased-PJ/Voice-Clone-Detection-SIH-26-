@@ -8,7 +8,6 @@ export const Footer: React.FC = () => {
     <>
       <footer className="relative z-10 w-full mt-12 pt-8 pb-10 border-t border-slate-800/80 bg-[#05090d]/95 backdrop-blur-md text-slate-400 font-['Plus_Jakarta_Sans',sans-serif]">
         <div className="max-w-[1680px] mx-auto px-4 sm:px-8 lg:px-12 flex flex-col gap-6">
-          {/* Top Row: Brand, Telemetry & Status Badges */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-slate-800/60 font-mono text-xs">
             <div className="flex items-center gap-3">
               <span className="text-[#22d3ee] text-sm leading-none drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]">
@@ -39,7 +38,6 @@ export const Footer: React.FC = () => {
             </div>
           </div>
 
-          {/* Middle Row: Description & Navigation Links */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs">
             <p className="text-slate-400 max-w-2xl leading-relaxed text-[11.5px]">
               Voice Guardian by Team Rocket delivers real-time voice clone detection, neural vocoder analysis, and social-engineering defense with verifiable cryptographic evidence.
@@ -70,7 +68,6 @@ export const Footer: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottom Row: Disclaimer & Copyright */}
           <div className="pt-4 border-t border-slate-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[10.5px] font-mono text-slate-400">
             <span>© 2026 Team Rocket. All rights reserved.</span>
             <span>Location shown may be inaccurate and is intended for reference only.</span>
@@ -78,7 +75,6 @@ export const Footer: React.FC = () => {
         </div>
       </footer>
 
-      {/* Modal Dialog for Terms, Privacy, Compliance */}
       {activeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="rounded-2xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border bg-[#0d161d] border-slate-800 text-slate-200 shadow-[0_25px_60px_rgba(0,0,0,0.85)] relative">

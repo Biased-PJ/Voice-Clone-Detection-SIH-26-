@@ -31,7 +31,6 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
   const primaryColor = isAiGenerated ? '#f43f5e' : '#2dd4bf';
   const glowColor = isAiGenerated ? 'rgba(244, 63, 94, 0.4)' : 'rgba(45, 212, 191, 0.4)';
 
-  // Handle Play/Pause
   const togglePlay = () => {
     if (!audioRef.current) return;
     if (isPlaying) {
@@ -73,7 +72,6 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Canvas drawing loop
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -101,13 +99,11 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
       animRef.current = requestAnimationFrame(draw);
       ctx.clearRect(0, 0, width, height);
 
-      // Canvas background
       ctx.fillStyle = '#060a0f';
       ctx.fillRect(0, 0, width, height);
 
       const centerY = height / 2;
 
-      // Subtle horizontal baseline
       ctx.strokeStyle = 'rgba(51, 65, 85, 0.3)';
       ctx.lineWidth = 1;
       ctx.setLineDash([6, 6]);
@@ -119,17 +115,15 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
 
       if (isPlaying) {
         phase += 0.05;
-        // Jitter pitch
+
         const base = isAiGenerated ? 218 : 172;
         const variance = (Math.sin(phase * 1.6) + Math.cos(phase * 0.8)) * (isAiGenerated ? 16 : 8);
         setCurrentPitch(Math.round(base + variance));
       }
 
-      // Progress ratio (0 to 1)
       const progressRatio = duration > 0 ? currentTime / duration : 0;
       const progressX = progressRatio * width;
 
-      // Draw Waveform bars
       const numBars = 100;
       const barWidth = width / numBars - 2;
 
@@ -137,11 +131,10 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
         const x = i * (barWidth + 2);
         const normX = i / numBars;
 
-        // Harmonic amplitude calculation
         const h1 = Math.sin(normX * 12 + (isPlaying ? phase : 1.2)) * 0.4;
         const h2 = Math.cos(normX * 24 + (isPlaying ? phase * 0.5 : 0.8)) * 0.25;
         const h3 = Math.sin(normX * 6) * 0.25;
-        const envelope = Math.sin(normX * Math.PI); // tapering ends
+        const envelope = Math.sin(normX * Math.PI);
         const rawAmp = Math.abs(h1 + h2 + h3) * envelope;
         const barHeight = Math.max(4, rawAmp * (height * 0.7));
 
@@ -155,7 +148,6 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
         ctx.fillRect(x, centerY - barHeight / 2, barWidth, barHeight);
       }
 
-      // Draw Pitch tracking continuous wave overlay
       ctx.beginPath();
       ctx.lineWidth = 2;
       ctx.strokeStyle = primaryColor;
@@ -172,7 +164,6 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      // Draw Playhead line
       if (progressX > 0) {
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
@@ -181,7 +172,6 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
         ctx.lineTo(progressX, height);
         ctx.stroke();
 
-        // Playhead diamond
         ctx.fillStyle = primaryColor;
         ctx.beginPath();
         ctx.arc(progressX, 10, 5, 0, Math.PI * 2);
@@ -199,7 +189,6 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
 
   return (
     <div className="w-full rounded-2xl bg-[#070c12] border border-slate-800/90 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)] flex flex-col">
-      {/* Hidden audio element for playback */}
       {audioUrl && (
         <audio
           ref={audioRef}
@@ -211,7 +200,6 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
         />
       )}
 
-      {/* Top Header of Waveform Player */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800/80 bg-[#091118]/80 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <span
@@ -247,7 +235,6 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
         </div>
       </div>
 
-      {/* Interactive Waveform Canvas */}
       <div
         ref={containerRef}
         onClick={handleSeek}
@@ -256,13 +243,11 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
       >
         <canvas ref={canvasRef} className="w-full h-full block" />
 
-        {/* Hover seek hint */}
         <div className="absolute top-3 right-4 px-2 py-0.5 rounded text-[10px] font-mono bg-slate-900/80 border border-slate-800 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
           Click anywhere on waveform to seek
         </div>
       </div>
 
-      {/* Bottom Audio Player Bar */}
       <div className="flex items-center justify-between px-5 py-3 border-t border-slate-800/80 bg-[#080d13]">
         <div className="flex items-center gap-3">
           <button
@@ -287,14 +272,12 @@ export const RecordedWaveformPlayer: React.FC<RecordedWaveformPlayerProps> = ({
             <RotateCcw className="w-4 h-4" />
           </button>
 
-          {/* Time display */}
           <div className="text-xs font-mono text-slate-300">
             <span className="font-semibold text-white">{formatTime(currentTime)}</span>
             <span className="text-slate-500"> / {formatTime(duration)}</span>
           </div>
         </div>
 
-        {/* Right audio controls */}
         <div className="flex items-center gap-3">
           <button
             type="button"

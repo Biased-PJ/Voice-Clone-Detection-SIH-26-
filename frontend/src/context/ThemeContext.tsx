@@ -26,7 +26,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       localStorage.setItem('voice-guardian-theme', 'dark');
     } catch {
-      // ignore
+
     }
   }, []);
 

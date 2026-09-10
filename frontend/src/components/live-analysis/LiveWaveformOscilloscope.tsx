@@ -30,18 +30,16 @@ export const LiveWaveformOscilloscope: React.FC<LiveWaveformOscilloscopeProps> =
       const height = canvas.height;
       const centerY = height / 2;
 
-      // Dark tactical canvas clear
       ctx.fillStyle = '#060a0f';
       ctx.fillRect(0, 0, width, height);
 
-      // Draw subtle grid lines
       ctx.strokeStyle = 'rgba(30, 41, 59, 0.45)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      // Horizontal center line
+
       ctx.moveTo(0, centerY);
       ctx.lineTo(width, centerY);
-      // Grid markings
+
       for (let y = 0; y < height; y += 30) {
         ctx.moveTo(0, y);
         ctx.lineTo(width, y);
@@ -52,7 +50,6 @@ export const LiveWaveformOscilloscope: React.FC<LiveWaveformOscilloscopeProps> =
       }
       ctx.stroke();
 
-      // Zero-crossing dashed reference line
       ctx.strokeStyle = 'rgba(45, 212, 191, 0.2)';
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
@@ -61,22 +58,20 @@ export const LiveWaveformOscilloscope: React.FC<LiveWaveformOscilloscopeProps> =
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Color scheme based on threatLevel
-      let primaryColor = '#2dd4bf'; // teal
+      let primaryColor = '#2dd4bf';
       let glowColor = 'rgba(45, 212, 191, 0.45)';
       if (threatLevel === 'Critical') {
-        primaryColor = '#f43f5e'; // rose
+        primaryColor = '#f43f5e';
         glowColor = 'rgba(244, 63, 94, 0.55)';
       } else if (threatLevel === 'Suspicious') {
-        primaryColor = '#f59e0b'; // amber
+        primaryColor = '#f59e0b';
         glowColor = 'rgba(245, 158, 11, 0.5)';
       }
 
-      // Collect audio waveform data
       if (analyserNode && isActive) {
         analyserNode.getByteTimeDomainData(dataArray);
       } else if (isActive) {
-        // Simulated synthetic waveform
+
         phase += 0.08;
         const baseAmp = threatLevel === 'Critical' ? 45 : 30;
         for (let i = 0; i < dataArray.length; i++) {
@@ -88,14 +83,13 @@ export const LiveWaveformOscilloscope: React.FC<LiveWaveformOscilloscopeProps> =
           dataArray[i] = Math.max(0, Math.min(255, Math.floor(val)));
         }
       } else {
-        // Flatline standby with tiny ambient noise
+
         phase += 0.02;
         for (let i = 0; i < dataArray.length; i++) {
           dataArray[i] = 128 + Math.sin(i * 0.05 + phase) * 2;
         }
       }
 
-      // Draw glowing background envelope
       ctx.save();
       ctx.beginPath();
       const sliceWidth = width / (dataArray.length - 1);
@@ -113,7 +107,6 @@ export const LiveWaveformOscilloscope: React.FC<LiveWaveformOscilloscopeProps> =
         x += sliceWidth;
       }
 
-      // Glow pass
       ctx.shadowBlur = 12;
       ctx.shadowColor = glowColor;
       ctx.strokeStyle = primaryColor;
@@ -121,14 +114,12 @@ export const LiveWaveformOscilloscope: React.FC<LiveWaveformOscilloscopeProps> =
       ctx.stroke();
       ctx.restore();
 
-      // Draw peak amplitude threshold brackets
       ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
       ctx.font = '9px monospace';
       ctx.fillText('+1.0 FS', 8, 14);
       ctx.fillText('0.0 (DC)', 8, centerY - 4);
       ctx.fillText('-1.0 FS', 8, height - 6);
 
-      // Ingest status badge in top-right of oscilloscope
       ctx.fillStyle = isActive ? primaryColor : '#64748b';
       ctx.beginPath();
       ctx.arc(width - 16, 16, 4, 0, Math.PI * 2);
@@ -150,7 +141,6 @@ export const LiveWaveformOscilloscope: React.FC<LiveWaveformOscilloscopeProps> =
     };
   }, [analyserNode, isActive, threatLevel]);
 
-  // dBFS calculation
   const dbValue = rmsVolume > 0.001 ? Math.max(-60, Math.round(20 * Math.log10(rmsVolume))) : -60;
 
   return (
@@ -185,7 +175,6 @@ export const LiveWaveformOscilloscope: React.FC<LiveWaveformOscilloscopeProps> =
         </div>
       </div>
 
-      {/* Canvas */}
       <div className="relative w-full h-44 sm:h-52 rounded-xl overflow-hidden border border-slate-800 bg-[#060a0f]">
         <canvas
           ref={canvasRef}
@@ -194,7 +183,6 @@ export const LiveWaveformOscilloscope: React.FC<LiveWaveformOscilloscopeProps> =
           className="w-full h-full object-cover block"
         />
 
-        {/* Tactical overlay guides */}
         <div className="absolute bottom-2 left-3 flex items-center gap-2 text-[10px] font-mono text-slate-500 pointer-events-none">
           <span>SAMPLING: 48 kHz / 24-BIT</span>
           <span>•</span>

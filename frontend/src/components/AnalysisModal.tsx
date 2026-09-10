@@ -324,7 +324,6 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div className="bg-[#091117] border border-slate-800/90 rounded-3xl w-full max-w-2xl overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.85)] flex flex-col max-h-[92vh]">
-        {/* Modal Top Header */}
         <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between bg-[#060c11]">
           <div className="flex items-center gap-2.5">
             <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
@@ -344,9 +343,7 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
-          {/* Input Method Navigation Tabs */}
           {!isAnalyzing && !analysisResult && (
             <div className="flex rounded-xl bg-slate-900/80 p-1 border border-slate-800">
               <button
@@ -388,7 +385,6 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
             </div>
           )}
 
-          {/* TAB 1: Microphone */}
           {!isAnalyzing && !analysisResult && activeTab === 'mic' && (
             <div className="flex flex-col items-center justify-center p-8 rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 text-center">
               <div
@@ -435,7 +431,6 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: Upload File */}
           {!isAnalyzing && !analysisResult && activeTab === 'upload' && (
             <div
               onDragOver={(e) => {
@@ -479,7 +474,6 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
             </div>
           )}
 
-          {/* TAB 3: Pre-loaded Demo Data */}
           {!isAnalyzing && !analysisResult && activeTab === 'demo' && (
             <div className="space-y-3">
               <p className="text-xs text-slate-400">
@@ -527,7 +521,6 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
             </div>
           )}
 
-          {/* 5 Checkpoints Progress */}
           <div className="p-4 rounded-2xl bg-[#070d12] border border-slate-800">
             <h4 className="text-xs font-bold font-mono tracking-wider uppercase text-slate-400 mb-3 flex items-center justify-between">
               <span>Execution Pipeline: 5 Checkpoints</span>
@@ -596,7 +589,6 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
             </div>
           </div>
 
-          {/* Results & Action Buttons */}
           {analysisResult && (
             <div className="space-y-4 animate-fadeIn">
               <div
@@ -629,7 +621,6 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
                     </span>
                   </div>
 
-                  {/* Clean 2-Score Verdict Display */}
                   <div className="grid grid-cols-2 gap-2 mt-3 mb-2 font-mono">
                     <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
                       <div className="text-[10px] text-slate-400 uppercase">1. AI Voice Score</div>

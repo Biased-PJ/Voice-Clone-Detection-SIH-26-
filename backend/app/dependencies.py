@@ -6,12 +6,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.database import db
 from app.services.auth_service import decode_access_token
 
-
 bearer_scheme = HTTPBearer(auto_error=False)
 
-
 UserRecord = dict[str, Any]
-
 
 async def _load_user(token: Optional[str]) -> Optional[UserRecord]:
     if not token:
@@ -36,13 +33,11 @@ async def _load_user(token: Optional[str]) -> Optional[UserRecord]:
 
     return user
 
-
 async def get_current_user_optional(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)
 ) -> Optional[UserRecord]:
     token = credentials.credentials if credentials else None
     return await _load_user(token)
-
 
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)

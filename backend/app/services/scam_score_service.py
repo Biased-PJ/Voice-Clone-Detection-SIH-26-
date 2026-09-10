@@ -21,18 +21,6 @@ import re
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Optional Gemini support
-# ---------------------------------------------------------------------------
-#
-# Keep this OFF for the live demo.
-#
-# To explicitly enable Gemini later:
-#     ENABLE_GEMINI_SCORING=true
-#
-# If Gemini fails, the local rules engine continues silently.
-# ---------------------------------------------------------------------------
-
 ENABLE_GEMINI = (
     os.getenv("ENABLE_GEMINI_SCORING", "false").strip().lower()
     in {"1", "true", "yes", "on"}
@@ -67,11 +55,6 @@ if ENABLE_GEMINI and GEMINI_SDK_AVAILABLE and GEMINI_API_KEY:
             "Using local multilingual scam scoring."
         )
 
-
-# ---------------------------------------------------------------------------
-# Gemini prompt
-# ---------------------------------------------------------------------------
-
 _PROMPT_TEMPLATE = """
 You are a multilingual phone-fraud classifier.
 
@@ -102,15 +85,7 @@ Transcript:
 
 _NUMBER_RE = re.compile(r"-?\d+")
 
-
-# ---------------------------------------------------------------------------
-# Multilingual scam rules
-# ---------------------------------------------------------------------------
-
 _RULES = [
-    # =======================================================================
-    # ENGLISH
-    # =======================================================================
 
     (
         r"\botp\b|one[- ]time password|verification code|security code",
@@ -173,10 +148,6 @@ _RULES = [
         "common fraud pretext",
     ),
 
-    # =======================================================================
-    # HINDI
-    # =======================================================================
-
     (
         r"ओटीपी|otp|वन[- ]टाइम पासवर्ड|वेरिफिकेशन कोड|सुरक्षा कोड|"
         r"कोड बताइए|कोड बताओ",
@@ -229,10 +200,6 @@ _RULES = [
         "Hinglish fraud language",
     ),
 
-    # =======================================================================
-    # BENGALI
-    # =======================================================================
-
     (
         r"ওটিপি|otp|ওয়ান[- ]টাইম পাসওয়ার্ড|ভেরিফিকেশন কোড|কোড বলুন",
         35,
@@ -272,10 +239,6 @@ _RULES = [
         "secrecy/access request",
     ),
 
-    # =======================================================================
-    # MARATHI
-    # =======================================================================
-
     (
         r"ओटीपी|otp|वन[- ]टाइम पासवर्ड|व्हेरिफिकेशन कोड|कोड सांगा",
         35,
@@ -313,10 +276,6 @@ _RULES = [
         18,
         "secrecy/access request",
     ),
-
-    # =======================================================================
-    # TELUGU
-    # =======================================================================
 
     (
         r"ఓటీపీ|otp|వన్[- ]టైమ్ పాస్‌వర్డ్|వెరిఫికేషన్ కోడ్|కోడ్ చెప్పండి",
@@ -357,10 +316,6 @@ _RULES = [
         18,
         "secrecy/access request",
     ),
-
-    # =======================================================================
-    # TAMIL
-    # =======================================================================
 
     (
         r"ஓடிபி|otp|ஒரு முறை கடவுச்சொல்|"
@@ -404,14 +359,8 @@ _RULES = [
     ),
 ]
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _clamp(value: int, lo: int = 0, hi: int = 100) -> int:
     return max(lo, min(hi, int(value)))
-
 
 def _local_scam_score(transcript: str) -> tuple[int, list[str]]:
     """
@@ -436,10 +385,9 @@ def _local_scam_score(transcript: str) -> tuple[int, list[str]]:
                     reasons.append(reason)
 
         except re.error:
-            # A malformed optional rule must never break live analysis.
+
             continue
 
-    # Combination bonus.
     if len(reasons) >= 3:
         score += 10
 
@@ -447,11 +395,6 @@ def _local_scam_score(transcript: str) -> tuple[int, list[str]]:
         score += 10
 
     return _clamp(score), reasons
-
-
-# ---------------------------------------------------------------------------
-# Optional Gemini enhancement
-# ---------------------------------------------------------------------------
 
 def _gemini_score(transcript: str) -> int | None:
     """
@@ -487,13 +430,8 @@ def _gemini_score(transcript: str) -> int | None:
         return _clamp(int(match.group()))
 
     except Exception:
-        # Do NOT spam the terminal during live calls.
+
         return None
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 def get_scam_score(transcript: str) -> dict:
     """
@@ -513,7 +451,6 @@ def get_scam_score(transcript: str) -> dict:
 
     text = (transcript or "").strip()
 
-    # Whisper sometimes returns placeholders/markers.
     if not text or text.startswith("["):
         return {
             "scam_score": 0,
@@ -526,7 +463,6 @@ def get_scam_score(transcript: str) -> dict:
 
     local_score, reasons = _local_scam_score(text)
 
-    # Gemini is optional and disabled by default.
     gemini_score = _gemini_score(text)
 
     if gemini_score is None:

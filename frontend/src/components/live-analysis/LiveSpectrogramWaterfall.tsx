@@ -35,14 +35,14 @@ export const LiveSpectrogramWaterfall: React.FC<LiveSpectrogramWaterfallProps> =
       if (analyserNode && isActive) {
         analyserNode.getByteFrequencyData(freqData);
       } else if (isActive) {
-        // Simulated FFT spectrum with distinct formant ridges
+
         const isAttack = threatLevel === 'Critical';
         for (let i = 0; i < 64; i++) {
           const normFreq = i / 64;
-          // Formant peaks around 700Hz and 1800Hz
+
           const f1 = Math.exp(-Math.pow((normFreq - 0.15) * 8, 2)) * 200;
           const f2 = Math.exp(-Math.pow((normFreq - 0.35) * 8, 2)) * 160;
-          // Vocoder artifact spike at 3.5kHz (around normFreq 0.5) if attack
+
           const vocoderGlitch = isAttack
             ? Math.exp(-Math.pow((normFreq - 0.52) * 12, 2)) * 180
             : 0;
@@ -50,7 +50,7 @@ export const LiveSpectrogramWaterfall: React.FC<LiveSpectrogramWaterfallProps> =
           freqData[i] = Math.min(255, Math.floor(f1 + f2 + vocoderGlitch + noise));
         }
       } else {
-        // Low idle noise floor
+
         for (let i = 0; i < 64; i++) {
           freqData[i] = Math.floor(Math.random() * 8);
         }
@@ -67,29 +67,26 @@ export const LiveSpectrogramWaterfall: React.FC<LiveSpectrogramWaterfallProps> =
         const x = i * (barWidth + 2);
         const y = height - barHeight - 20;
 
-        // Gradient based on frequency band and threat
-        const isVocoderBand = i >= 22 && i <= 32; // ~3.2kHz - ~4.5kHz
-        let barColor = '#14b8a6'; // teal
+        const isVocoderBand = i >= 22 && i <= 32;
+        let barColor = '#14b8a6';
 
         if (isVocoderBand && threatLevel === 'Critical') {
-          barColor = '#f43f5e'; // rose warning in the vocoder smear zone
+          barColor = '#f43f5e';
         } else if (isVocoderBand && threatLevel === 'Suspicious') {
           barColor = '#f59e0b';
         } else if (i < 12) {
-          barColor = '#38bdf8'; // low fundamental
+          barColor = '#38bdf8';
         } else if (i > 36) {
-          barColor = '#818cf8'; // upper air
+          barColor = '#818cf8';
         }
 
         ctx.fillStyle = barColor;
         ctx.fillRect(x, y, barWidth, barHeight);
 
-        // Peak cap point
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(x, Math.max(0, y - 2), barWidth, 1.5);
       }
 
-      // Draw frequency annotations at bottom
       ctx.fillStyle = '#64748b';
       ctx.font = '9px monospace';
       ctx.fillText('100Hz', 4, height - 6);
@@ -97,7 +94,6 @@ export const LiveSpectrogramWaterfall: React.FC<LiveSpectrogramWaterfallProps> =
       ctx.fillText('3.5kHz (VOCODER ZONE)', width * 0.48, height - 6);
       ctx.fillText('8kHz', width - 36, height - 6);
 
-      // If threat is high, highlight the Vocoder Phase Inpainting anomaly zone
       if (threatLevel === 'Critical' && isActive) {
         const xStart = 22 * (barWidth + 2);
         const xEnd = 32 * (barWidth + 2) + barWidth;

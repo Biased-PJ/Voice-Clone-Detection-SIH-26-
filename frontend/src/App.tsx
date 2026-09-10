@@ -50,9 +50,8 @@ function AppContent() {
       setUser(null);
       setCurrentView('landing');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
+  }, []);
 
   const handleNavigate = (view: 'dashboard' | 'live-analysis' | 'recorded-analysis' | 'call-intelligence' | 'landing', tab?: string) => {
     if (tab) {
