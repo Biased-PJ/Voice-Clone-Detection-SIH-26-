@@ -2,7 +2,7 @@
 // The JWT is passed in explicitly by callers — it lives only in React state
 // (see App.tsx), never in localStorage, per the auth design.
 export const API_BASE_URL = (
-  (import.meta as any).env?.VITE_API_BASE_URL || 'https://fu-brfb.onrender.com'
+  (import.meta as any).env?.VITE_API_BASE_URL || 'https://voice-clone-detection-sih-26.onrender.com'
 ).replace(/\/+$/, '');
 
 export interface AnalyzeResponse {
