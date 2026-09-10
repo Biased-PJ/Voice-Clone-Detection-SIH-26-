@@ -268,6 +268,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
   const [cloneAlarmScore, setCloneAlarmScore] = useState<number | null>(null);
   const [finalConclusion, setFinalConclusion] = useState<string | null>(null);
   const [finalResult, setFinalResult] = useState<AnalyzeResponse | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState('');
   const alarmArmedRef = useRef(true);
   const cloneAlarmThreshold = 80;
 
@@ -477,12 +478,13 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
 
     socket.onmessage = (event) => {
       try {
-        const result = JSON.parse(event.data) as AnalyzeResponse & { type?: string; error?: string };
+        const result = JSON.parse(event.data) as AnalyzeResponse & { type?: string; error?: string; transcript?: string; new_transcript?: string; conclusion?: string };
         if (result.type === 'error') {
           setMicStatus('error');
           setMicError(result.error || 'Live analysis failed.');
           return;
         }
+        if (result.transcript) setLiveTranscript(result.transcript);
         if (result.type === 'final') {
           const finalMessage = result as AnalyzeResponse & { conclusion?: string };
           finalizeSentRef.current = true;
@@ -594,7 +596,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
       try {
         setMicStatus('listening');
         recorder.start();
-        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        await new Promise((resolve) => window.setTimeout(resolve, 5000));
 
         if (recorder.state !== 'inactive') recorder.stop();
         await recordingDone;
@@ -651,6 +653,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
       finalizeSentRef.current = false;
       setFinalConclusion(null);
       setFinalResult(null);
+      setLiveTranscript('');
       setMicLiveResult(null);
       backendSessionIdRef.current = null;
       if (!authToken) {
@@ -746,7 +749,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
               try { socket.close(1000, 'final analysis timeout fallback'); } catch { }
               liveSocketRef.current = null;
             }
-          }, 10000);
+          }, 60000);
         } catch {
           try { socket.close(1000, 'analysis stopped'); } catch { }
           liveSocketRef.current = null;
@@ -899,6 +902,16 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
                 <p className="text-[10px] font-mono uppercase text-slate-500">Overall risk</p>
                 <p className="mt-1 text-2xl font-extrabold text-white">{finalResult.risk_score}/100</p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-slate-800 bg-[#06090e] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold text-slate-200">Final transcript</p>
+                <span className="text-[9px] font-mono uppercase tracking-wider text-slate-500">Whisper</span>
+              </div>
+              <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-slate-800/80 bg-slate-950/70 p-3">
+                <p className="whitespace-pre-wrap text-xs leading-5 text-slate-400">{(finalResult as any).transcript || liveTranscript || 'Transcript unavailable'}</p>
               </div>
             </div>
 
@@ -1180,6 +1193,23 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
           />
 
           {currentScenario === 'mic' && (
+            <div className="rounded-2xl border border-slate-800/90 bg-[#080d13] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.25)]">
+              <div className="flex items-center justify-between gap-3 border-b border-slate-800/70 pb-3">
+                <div>
+                  <p className="text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-400">Live Transcript</p>
+                  <p className="mt-1 text-[11px] text-slate-500">Backend Whisper • multilingual • 5-second windows</p>
+                </div>
+                <span className="rounded-full border border-teal-500/20 bg-teal-500/10 px-2 py-1 text-[9px] font-mono uppercase tracking-wider text-teal-300">Whisper</span>
+              </div>
+              <div className="mt-4 min-h-[96px] max-h-44 overflow-y-auto rounded-xl border border-slate-800 bg-[#05080c] p-4">
+                <p className={`text-sm leading-6 ${liveTranscript ? 'text-slate-200' : 'text-slate-600'}`}>
+                  {liveTranscript || (isCallActive ? 'Listening for speech…' : 'No transcript yet. Start a live call to begin.')}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {currentScenario === 'mic' && (
             <div
               className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono border ${micStatus === 'error'
                 ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
@@ -1198,7 +1228,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
                   : micStatus === 'analyzing'
                     ? 'Sending audio segment to the analysis backend…'
                     : micStatus === 'listening'
-                      ? 'Listening — streaming 2s audio segments for continuous scoring'
+                      ? 'Listening — streaming 5s audio windows for more reliable Whisper transcription'
                       : 'Microphone idle'}
               </span>
             </div>

@@ -78,7 +78,7 @@ export interface CallIntelligenceRecord {
   aiVoiceScore: number;
   scamIntentScore: number;
   classification: 'Critical' | 'Suspicious' | 'Safe';
-  verdictType?: 'Cloned' | 'Spam' | 'Suspicious' | 'Safe';
+  verdictType?: 'Cloned' | 'Scam' | 'Spam' | 'Suspicious' | 'Safe';
   verdictReason?: string;
   primaryEvidence?: string;
   aiModelDetected?: string;

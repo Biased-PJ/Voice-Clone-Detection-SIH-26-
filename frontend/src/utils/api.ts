@@ -166,10 +166,11 @@ export async function startCallSession(language: string, token: string) {
   return handle(res);
 }
 
-export async function endCallSession(sessionId: string, token: string) {
+export async function endCallSession(sessionId: string, token: string, result?: Record<string, any>) {
   const res = await fetch(`${API_BASE_URL}/api/v1/calls/${sessionId}/end`, {
     method: 'POST',
-    headers: authHeaders(token),
+    headers: result ? { 'Content-Type': 'application/json', ...authHeaders(token) } : authHeaders(token),
+    ...(result ? { body: JSON.stringify(result) } : {}),
   });
   return handle(res);
 }

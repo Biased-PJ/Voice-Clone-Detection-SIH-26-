@@ -71,10 +71,30 @@ def _merge_transcript(existing: list[str], text: str) -> None:
     text = re.sub(r"\s+", " ", (text or "").strip())
     if not _is_usable_transcript(text):
         return
-    # Browser recognition can repeat a phrase after restarting. Avoid storing
-    # exact duplicates while preserving the full chronological transcript.
-    if not existing or existing[-1].strip().lower() != text.lower():
-        existing.append(text)
+
+    normalized = text.casefold().strip()
+    if existing:
+        previous = re.sub(r"\s+", " ", existing[-1].strip()).casefold()
+        if previous == normalized:
+            return
+
+        # Live Whisper windows can overlap at their boundaries. Remove a
+        # repeated suffix/prefix rather than displaying duplicated words.
+        prev_words = previous.split()
+        new_words = normalized.split()
+        max_overlap = min(8, len(prev_words), len(new_words))
+        overlap = 0
+        for n in range(max_overlap, 0, -1):
+            if prev_words[-n:] == new_words[:n]:
+                overlap = n
+                break
+        if overlap:
+            original_words = text.split()
+            text = " ".join(original_words[overlap:]).strip()
+            if not text:
+                return
+
+    existing.append(text)
 
 
 @router.post("/api/v1/analyze/audio", response_model=AnalyzeResponse)
@@ -135,7 +155,22 @@ async def analyze_live(websocket: WebSocket):
         return
 
     await websocket.accept()
-    await websocket.send_json({"type": "ready", "session_id": session_id})
+
+    socket_alive = True
+
+    async def safe_send(payload: dict) -> bool:
+        nonlocal socket_alive
+        if not socket_alive or websocket.client_state.name != "CONNECTED":
+            return False
+        try:
+            await websocket.send_json(payload)
+            return True
+        except (WebSocketDisconnect, RuntimeError):
+            socket_alive = False
+            return False
+
+    if not await safe_send({"type": "ready", "session_id": session_id}):
+        return
 
     transcript_parts: list[str] = []
     synthetic_scores: list[float] = []
@@ -173,10 +208,13 @@ async def analyze_live(websocket: WebSocket):
         nonlocal latest_result
         full_transcript = " ".join(transcript_parts).strip()
         latest_result = _build_response(session_id, language, aggregate_ml(), full_transcript, latest_scam_score)
-        await websocket.send_json({
+        await safe_send({
             "type": "analysis",
             **latest_result.dict(),
-            "transcript": transcript,
+            # Always return the accumulated transcript so the UI never has to
+            # reconstruct it from transient websocket packets.
+            "transcript": full_transcript,
+            "new_transcript": transcript,
             "scam_reasons": latest_scam_reasons,
         })
 
@@ -260,7 +298,7 @@ async def analyze_live(websocket: WebSocket):
         )
 
         finalized = True
-        await websocket.send_json({
+        await safe_send({
             "type": "final",
             **latest_result.dict(),
             "conclusion": conclusion,
@@ -302,7 +340,7 @@ async def analyze_live(websocket: WebSocket):
                         await finalize_call()
                     except Exception as exc:
                         logger.exception("Final call analysis failed")
-                        await websocket.send_json({"type": "error", "error": f"Final call analysis failed: {exc}"})
+                        await safe_send({"type": "error", "error": f"Final call analysis failed: {exc}"})
                     continue
 
             if finalized:
@@ -337,12 +375,13 @@ async def analyze_live(websocket: WebSocket):
                 await score_current_transcript()
                 await send_live_update(whisper_text if _is_usable_transcript(whisper_text) else "")
             except (OSError, ValueError) as exc:
-                await websocket.send_json({"type": "error", "error": f"Audio could not be decoded: {exc}"})
+                await safe_send({"type": "error", "error": f"Audio could not be decoded: {exc}"})
             except Exception as exc:
                 logger.exception("Live inference failed")
-                await websocket.send_json({"type": "error", "error": f"Live inference failed: {exc}"})
+                await safe_send({"type": "error", "error": f"Live inference failed: {exc}"})
 
     except WebSocketDisconnect:
-        # Do not create a fake analysis record on an unexpected disconnect.
-        # The final record is created only by an explicit finalize command.
+        socket_alive = False
+        # A browser/network disconnect is a normal websocket lifecycle event.
+        # Never attempt another websocket send from this branch.
         pass
