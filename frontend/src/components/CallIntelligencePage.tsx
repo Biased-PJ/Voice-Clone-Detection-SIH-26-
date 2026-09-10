@@ -76,8 +76,15 @@ function recordFromBackend(result: Record<string, any>): CallIntelligenceRecord 
     duration: (() => { const d = Number(result.duration_seconds ?? result.duration ?? 0); return d > 0 ? `${Math.floor(d / 60)}:${String(Math.floor(d % 60)).padStart(2, '0')}` : 'Not provided'; })(),
     timestamp: result.created_at ? new Date(result.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST' : (result.started_at || ''), threatScore: score,
     aiVoiceScore: Math.round(Number(result.synthetic_probability ?? 0) * 100), scamIntentScore: scamScore,
-    classification, verdictType: classification === 'Critical' ? 'Cloned' : classification === 'Safe' ? 'Safe' : 'Suspicious',
-    verdictReason: factors.length ? `Classified ${classification.toLowerCase()} because: ${factors.join('; ')}.` : (result.conclusion || result.suggestion || 'No risk factors were returned.'),
+    classification,
+    verdictType: Number(result.ai_voice_percent ?? Number(result.synthetic_probability ?? 0) * 100) >= 70
+      ? 'Cloned'
+      : scamScore >= 70
+        ? 'Scam'
+        : classification === 'Safe' ? 'Safe' : 'Suspicious',
+    verdictReason: factors.length
+      ? `Classified ${classification.toLowerCase()} because: ${factors.join('; ')}.`
+      : (scamReasons.length ? `Scam intent indicators: ${scamReasons.join('; ')}.` : (result.conclusion || result.suggestion || 'No strong risk factors were returned.')),
     primaryEvidence: evidence, aiModelDetected: 'Backend risk engine',
     summary: result.suggestion || 'Backend analysis completed without a summary.', transcripts: transcript ? [{ id: `${result.session_id}-transcript`, speaker: 'Caller', speakerLabel: 'Backend transcript', timestamp: '00:00', timeSec: 0, text: transcript }] : [], flags,
   };

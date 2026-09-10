@@ -283,6 +283,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
   const finalizeSentRef = useRef(false);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const finalizeTimerRef = useRef<number | null>(null);
+  const lastBackendResultRef = useRef<(AnalyzeResponse & { transcript?: string; conclusion?: string; scam_reasons?: string[] }) | null>(null);
 
   const scenario = isCallActive && currentScenario === 'mic' && micLiveResult ? micLiveResult : IDLE_SCENARIO;
   const isCritical = scenario.aiVoiceScore >= 70 || scenario.scamIntentScore >= 70;
@@ -313,6 +314,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
   }, [currentScenario, isCallActive]);
 
   const applyBackendResult = (backendResult: AnalyzeResponse) => {
+    lastBackendResultRef.current = backendResult as AnalyzeResponse & { transcript?: string; conclusion?: string; scam_reasons?: string[] };
     const aiScore = Math.round(backendResult.synthetic_probability * 100);
     const scamScore = Number.isFinite(backendResult.scam_score) ? backendResult.scam_score : backendResult.risk_score;
     const isCritical = backendResult.risk_level === 'CRITICAL' || backendResult.risk_level === 'HIGH';
@@ -459,7 +461,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
     ];
     const mimeType = mimeCandidates.find((type) => MediaRecorder.isTypeSupported(type)) || '';
 
-    const socket = createLiveAnalysisSocket(sessionId, 'en', authToken);
+    const socket = createLiveAnalysisSocket(sessionId, 'auto', authToken);
     liveSocketRef.current = socket;
 
     socket.binaryType = 'arraybuffer';
@@ -484,12 +486,14 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
         if (result.type === 'final') {
           const finalMessage = result as AnalyzeResponse & { conclusion?: string };
           finalizeSentRef.current = true;
+          if (finalizeTimerRef.current) { window.clearTimeout(finalizeTimerRef.current); finalizeTimerRef.current = null; }
           setFinalResult(finalMessage);
           setFinalConclusion(finalMessage.conclusion || 'Call analysis complete.');
           applyBackendResult(finalMessage);
-          if (backendSessionIdRef.current && authToken) {
-            const sid = backendSessionIdRef.current;
-            void endCallSession(sid, authToken).finally(() => {
+          setIsCallActive(false);
+          const sid = backendSessionIdRef.current;
+          if (sid && authToken) {
+            void endCallSession(sid, authToken, finalMessage).finally(() => {
               backendSessionIdRef.current = null;
               window.dispatchEvent(new Event('voiceguardian-history-updated'));
             });
@@ -556,9 +560,12 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
 
     // Chrome/Edge browser speech recognition gives us a live transcript without
     // requiring a Whisper model download. Whisper remains the backend fallback.
-    const browserTranscriptEnabled = startBrowserTranscription(socket);
+    // Backend Whisper is the authoritative live transcript. Browser
+    // SpeechRecognition is intentionally not used here because Chrome's
+    // recognition was hard-coded to en-IN and could corrupt multilingual calls.
+    const browserTranscriptEnabled = false;
     if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'transcription_mode', mode: browserTranscriptEnabled ? 'browser' : 'whisper' }));
+      socket.send(JSON.stringify({ type: 'transcription_mode', mode: 'whisper' }));
     }
 
     while (micLoopActiveRef.current && socket.readyState === WebSocket.OPEN) {
@@ -625,7 +632,7 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
     if (!authToken) throw new Error('You must be logged in to use live analysis.');
 
     if (!sessionStartPromiseRef.current) {
-      sessionStartPromiseRef.current = startCallSession('en', authToken)
+      sessionStartPromiseRef.current = startCallSession('auto', authToken)
         .then((session: any) => {
           const id = session?.session_id || null;
           backendSessionIdRef.current = id;
@@ -704,12 +711,42 @@ export const LiveAnalysisPage: React.FC<LiveAnalysisPageProps> = ({
           finalizeSentRef.current = true;
           setMicStatus('analyzing');
           socket.send(JSON.stringify({ type: 'finalize' }));
-          finalizeTimerRef.current = window.setTimeout(() => {
+
+          // Hard fallback: the UI must never get stuck waiting forever for a
+          // websocket final packet. Persist the last known result through the
+          // HTTP endpoint and show a local conclusion as a safety net.
+          finalizeTimerRef.current = window.setTimeout(async () => {
+            if (finalResult || !authToken) return;
+            const last = lastBackendResultRef.current;
+            if (last) {
+              const ai = Math.round(Number(last.synthetic_probability ?? 0.5) * 100);
+              const scam = Number(last.scam_score ?? 0);
+              const risk = Number(last.risk_score ?? 0);
+              const conclusion = ai >= 70 && scam >= 70
+                ? 'HIGH-RISK AI VOICE SCAM'
+                : ai >= 70
+                  ? 'LIKELY CLONED / SYNTHETIC VOICE'
+                  : scam >= 70
+                    ? 'LIKELY SCAM — HUMAN VOICE POSSIBLE'
+                    : risk >= 40
+                      ? 'SUSPICIOUS CALL — VERIFY BEFORE TRUSTING'
+                      : 'LIKELY SAFE / NO STRONG THREAT DETECTED';
+              const fallback = { ...last, conclusion } as AnalyzeResponse & { conclusion: string };
+              setFinalResult(fallback);
+              setFinalConclusion(conclusion);
+              setIsCallActive(false);
+              const sid = backendSessionIdRef.current;
+              if (sid) {
+                try { await endCallSession(sid, authToken, fallback); } catch { /* UI still shows the result */ }
+                backendSessionIdRef.current = null;
+              }
+              window.dispatchEvent(new Event('voiceguardian-history-updated'));
+            }
             if (liveSocketRef.current === socket) {
-              try { socket.close(1000, 'final analysis complete'); } catch { }
+              try { socket.close(1000, 'final analysis timeout fallback'); } catch { }
               liveSocketRef.current = null;
             }
-          }, 30000);
+          }, 10000);
         } catch {
           try { socket.close(1000, 'analysis stopped'); } catch { }
           liveSocketRef.current = null;

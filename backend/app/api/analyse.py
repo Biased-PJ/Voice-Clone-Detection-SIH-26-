@@ -13,7 +13,7 @@ from app.services.location_service import get_simulated_threat_location
 from app.services.ml_service import analyze_voice
 from app.services.risk_engine import compute_risk
 from app.services.suggestion_engine import generate_suggestion
-from app.services.speech_to_text import transcribe_audio
+from app.services.speech_to_text import transcribe_audio, transcribe_audio_chunks
 from app.services.scam_score_service import get_scam_score
 
 router = APIRouter()
@@ -145,6 +145,7 @@ async def analyze_live(websocket: WebSocket):
     finalized = False
     browser_transcript_received = False
     last_audio_transcript_index = 0
+    audio_chunks: list[bytes] = []
 
     def aggregate_ml() -> dict:
         if not synthetic_scores:
@@ -183,6 +184,15 @@ async def analyze_live(websocket: WebSocket):
         nonlocal latest_result, finalized
         if finalized:
             return
+
+        # First perform a fresh transcription over ALL audio received during the call.
+        # This is the reliable fallback when one or more 2-second live chunks had no
+        # transcript. Each WebM/Opus fragment is decoded separately before concatenation.
+        if audio_chunks:
+            aggregate_transcript = await run_in_threadpool(transcribe_audio_chunks, list(audio_chunks), language)
+            if _is_usable_transcript(aggregate_transcript):
+                transcript_parts.clear()
+                transcript_parts.append(aggregate_transcript)
 
         # Mark finalization only after all scoring/persistence succeeds. This
         # prevents a transient DB/processing exception from permanently losing
@@ -301,13 +311,14 @@ async def analyze_live(websocket: WebSocket):
             audio_bytes = message.get("bytes")
             if not audio_bytes:
                 continue
+            audio_chunks.append(bytes(audio_bytes))
 
             try:
                 # Run acoustic analysis and Whisper concurrently. This is the
                 # key reliability change: Score 2 no longer depends exclusively
                 # on browser SpeechRecognition being available.
                 ml_task = run_in_threadpool(analyze_voice, audio_bytes, "", language)
-                stt_task = run_in_threadpool(transcribe_audio, audio_bytes, language)
+                stt_task = run_in_threadpool(transcribe_audio, audio_bytes, language, True)
                 ml_output, whisper_text = await asyncio.gather(ml_task, stt_task)
                 synthetic_scores.append(float(ml_output["synthetic_probability"]))
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Body
 from datetime import datetime, timezone
 import uuid
 
@@ -38,7 +38,13 @@ async def get_call(session_id: str, current_user=Depends(get_current_user)):
 
 
 @router.post("/api/v1/calls/{session_id}/end", response_model=CallSessionResponse)
-async def end_call(session_id: str, current_user=Depends(get_current_user)):
+async def end_call(session_id: str, current_user=Depends(get_current_user), payload: dict | None = Body(default=None)):
+    """End a live call and guarantee that one final analysis record exists.
+
+    The frontend may send its last known websocket result as ``payload``. This
+    endpoint is intentionally idempotent: repeated clicks/retries update the
+    same session/result instead of creating duplicate history entries.
+    """
     existing = await db["call_sessions"].find_one({"session_id": session_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -47,54 +53,129 @@ async def end_call(session_id: str, current_user=Depends(get_current_user)):
 
     ended_at = datetime.now(timezone.utc)
     started_at = existing.get("started_at")
-    duration_seconds = None
+    duration_seconds = existing.get("duration_seconds")
     if started_at:
         try:
-            started_dt = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            started_dt = datetime.fromisoformat(str(started_at).replace("Z", "+00:00"))
             if started_dt.tzinfo is None:
                 started_dt = started_dt.replace(tzinfo=timezone.utc)
             duration_seconds = max(0, int((ended_at - started_dt).total_seconds()))
         except (TypeError, ValueError):
-            duration_seconds = None
+            pass
 
-    result = await db["call_sessions"].find_one_and_update(
-        {"session_id": session_id},
-        {"$set": {
-            "status": "ended",
-            "ended_at": ended_at.isoformat(),
-            "duration_seconds": duration_seconds,
-        }},
-        return_document=True,
+    payload = payload or {}
+    # Accept both { ...result } and { "result": { ...result } }.
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else payload
+    result = result if isinstance(result, dict) else {}
+
+    update = {
+        "status": "ended",
+        "ended_at": ended_at.isoformat(),
+        "duration_seconds": duration_seconds,
+    }
+    allowed = (
+        "language", "risk_score", "risk_level", "synthetic_probability",
+        "speaker_match_probability", "ai_voice_percent", "scam_score",
+        "risk_factors", "suggestion", "threat_location", "transcript",
+        "conclusion", "scam_reasons",
     )
-    result.pop("_id", None)
-    return result
+    for key in allowed:
+        if key in result and result[key] is not None:
+            update[key] = result[key]
+    update["analysis_completed"] = True
+    await db["call_sessions"].update_one({"session_id": session_id}, {"$set": update})
+
+    # Guarantee exactly one history/intelligence document for every ended live call.
+    final_session = await db["call_sessions"].find_one({"session_id": session_id})
+    final_result = await db["analysis_results"].find_one({
+        "session_id": session_id,
+        "user_id": existing["user_id"],
+        "live_final": True,
+    })
+    if not final_result:
+        s = final_session or existing
+        analysis_doc = {
+            "session_id": session_id,
+            "language": s.get("language", "auto"),
+            "risk_score": int(s.get("risk_score", 0) or 0),
+            "risk_level": s.get("risk_level", "LOW"),
+            "synthetic_probability": float(s.get("synthetic_probability", 0.5) or 0.5),
+            "speaker_match_probability": float(s.get("speaker_match_probability", 0.5) or 0.5),
+            "ai_voice_percent": float(s.get("ai_voice_percent", 50) or 50),
+            "scam_score": int(s.get("scam_score", 0) or 0),
+            "risk_factors": s.get("risk_factors", []) or [],
+            "suggestion": s.get("suggestion", "Review the call and verify the caller independently."),
+            "threat_location": s.get("threat_location"),
+            "transcript": s.get("transcript", "") or "",
+            "file_name": "live-call-final",
+            "user_id": existing["user_id"],
+            "created_at": s.get("ended_at") or ended_at.isoformat(),
+            "updated_at": ended_at.isoformat(),
+            "live_final": True,
+            "analysis_type": "live",
+            "conclusion": s.get("conclusion", "LIKELY SAFE / NO STRONG THREAT DETECTED"),
+            "duration_seconds": duration_seconds,
+            "scam_reasons": s.get("scam_reasons", []) or [],
+        }
+        await db["analysis_results"].update_one(
+            {"session_id": session_id, "user_id": existing["user_id"], "live_final": True},
+            {"$set": analysis_doc},
+            upsert=True,
+        )
+
+    result_session = await db["call_sessions"].find_one({"session_id": session_id})
+    result_session.pop("_id", None)
+    return result_session
 
 
 @router.get("/api/v1/calls")
 async def list_calls(current_user=Depends(get_current_user)):
-    """
-    A logged-in user's own analysis history — never a URL param, always
-    derived from the JWT. Admins additionally see demo data (is_demo: true
-    records in the "calls" collection) plus every user's real data.
-    """
+    """Return all real analyses, including every completed live call exactly once."""
     is_admin = current_user.get("role") == "admin"
+    user_filter = {} if is_admin else {"user_id": current_user["user_id"]}
 
-    if is_admin:
-        analysis_filter = {"live_chunk": {"$ne": True}}
-        session_filter = {}
-    else:
-        analysis_filter = {
-            "user_id": current_user["user_id"],
-            "live_chunk": {"$ne": True},
-        }
-        session_filter = {"user_id": current_user["user_id"]}
-
-    total_analysis_results = await db["analysis_results"].count_documents(analysis_filter)
+    analysis_filter = {**user_filter, "live_chunk": {"$ne": True}}
     analysis_cursor = db["analysis_results"].find(analysis_filter).sort("created_at", -1)
-    analysis_results = await analysis_cursor.to_list(length=500)
+    analysis_results = await analysis_cursor.to_list(length=1000)
 
+    session_filter = {} if is_admin else {"user_id": current_user["user_id"]}
     session_cursor = db["call_sessions"].find(session_filter).sort("started_at", -1)
-    call_sessions = await session_cursor.to_list(length=500)
+    call_sessions = await session_cursor.to_list(length=1000)
+
+    # Backfill the response for old/failed live finalizations. This does not
+    # create DB records here; the /end endpoint is the authoritative writer.
+    analysis_ids = {str(x.get("session_id")) for x in analysis_results if x.get("session_id")}
+    for s in call_sessions:
+        sid = s.get("session_id")
+        if s.get("status") == "ended" and sid and sid not in analysis_ids and s.get("analysis_completed"):
+            analysis_results.append({
+                "session_id": sid,
+                "language": s.get("language", "auto"),
+                "risk_score": int(s.get("risk_score", 0) or 0),
+                "risk_level": s.get("risk_level", "LOW"),
+                "synthetic_probability": float(s.get("synthetic_probability", 0.5) or 0.5),
+                "speaker_match_probability": float(s.get("speaker_match_probability", 0.5) or 0.5),
+                "ai_voice_percent": float(s.get("ai_voice_percent", 50) or 50),
+                "scam_score": int(s.get("scam_score", 0) or 0),
+                "risk_factors": s.get("risk_factors", []) or [],
+                "suggestion": s.get("suggestion", "Review the call and verify the caller independently."),
+                "threat_location": s.get("threat_location"),
+                "transcript": s.get("transcript", "") or "",
+                "file_name": "live-call-final",
+                "user_id": s.get("user_id"),
+                "created_at": s.get("ended_at") or s.get("started_at"),
+                "live_final": True,
+                "analysis_type": "live",
+                "conclusion": s.get("conclusion", "LIKELY SAFE / NO STRONG THREAT DETECTED"),
+                "duration_seconds": s.get("duration_seconds"),
+                "scam_reasons": s.get("scam_reasons", []) or [],
+            })
+
+    # Count distinct real analyzed calls. A live session counts once; recorded
+    # analyses without a call session count once as well.
+    real_ids = {str(x.get("session_id")) for x in analysis_results if x.get("session_id")}
+    anonymous_count = sum(1 for x in analysis_results if not x.get("session_id"))
+    total_analysis_results = len(real_ids) + anonymous_count
 
     demo_calls = []
     if is_admin:
@@ -104,8 +185,9 @@ async def list_calls(current_user=Depends(get_current_user)):
     for doc in (*analysis_results, *call_sessions, *demo_calls):
         doc.pop("_id", None)
 
+    analysis_results.sort(key=lambda x: str(x.get("created_at", "")), reverse=True)
     return {
-        "analysis_results": analysis_results,
+        "analysis_results": analysis_results[:1000],
         "call_sessions": call_sessions,
         "total_analysis_results": total_analysis_results,
         "demo_calls": demo_calls,

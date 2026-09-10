@@ -218,7 +218,7 @@ export const RecordedAnalysisPage: React.FC<RecordedAnalysisPageProps> = ({
       setAudioUrl(generatedUrl);
 
       const sessionId = `rec-${Date.now()}`;
-      const language = 'en';
+      const language = 'auto';
       setUploadStatus('processing');
       const backendResult = await analyzeAudioBackend(file, sessionId, language, authToken, setUploadProgress);
       window.dispatchEvent(new Event('voiceguardian-history-updated'));
