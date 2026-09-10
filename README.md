@@ -41,6 +41,7 @@
 - [Authentication & Security](#-authentication--security)
 - [Database Schema](#-database-schema-mongodb)
 - [Deployment](#-deployment)
+- [Running Locally (Why the Free-Tier Deploy Fails)](#-running-locally-why-the-free-tier-deploy-fails)
 - [Roadmap](#-roadmap)
 - [Team](#-team)
 - [License](#-license)
@@ -552,6 +553,103 @@ The `analyse.py` API layer additionally computes a plain-English **conclusion** 
 - **Backend:** Configured for platforms like [Render](https://render.com/) (a Render URL is the default `API_BASE_URL` fallback in `frontend/src/utils/api.ts`). Any ASGI-compatible host (Render, Railway, Fly.io, a Docker container behind Nginx, etc.) works — just ensure **FFmpeg** is installed on the host image, since both the ML and STT pipelines depend on it.
 - **Frontend:** Static build via `npm run build` (Vite) — deployable to Vercel, Netlify, Render Static Sites, or any static host. Set `VITE_API_BASE_URL` to point at your deployed backend.
 - **Database:** MongoDB Atlas recommended for a managed, zero-ops deployment; set `MONGO_URI` accordingly.
+
+---
+
+## 🖥️ Running Locally (Why the Free-Tier Deploy Fails)
+
+> **Known issue:** The backend is functionally correct but **will not boot on Render's free instance tier**. Render's free web services are capped at **512 MB RAM**, while this backend's resident memory footprint is roughly **~1 GB** once loaded — mainly TensorFlow 2.15 (~400–600 MB just to import), the Keras DNN weights, and the `faster-whisper` "base" model plus its CTranslate2 runtime, all held in memory simultaneously inside one Uvicorn worker. On boot, the OS OOM-killer terminates the process (or Render reports the service as "unhealthy"/crashing) before `uvicorn` ever finishes starting — so the frontend's requests to the Render URL time out or get connection-refused, even though nothing in the code is broken. This is a **memory ceiling problem, not a bug**.
+>
+> Running everything **locally** (or on a paid instance / any host with ≥ 2 GB RAM) sidesteps this entirely, since your machine's RAM is not capped at 512 MB. Below is the exact local workflow with `.env` files.
+
+### 1. Clone and lay out the two `.env` files
+
+```bash
+git clone https://github.com/<your-org>/Voice-Clone-Detection-SIH-26.git
+cd Voice-Clone-Detection-SIH-26
+```
+
+**Create `backend/.env`:**
+```env
+# --- Required ---
+MONGO_URI=mongodb://localhost:27017
+JWT_SECRET=replace-with-a-long-random-string
+
+# --- Optional (safe defaults shown) ---
+DB_NAME=voice_clone_db
+JWT_ALGORITHM=HS256
+JWT_EXPIRE_MINUTES=1440
+ADMIN_EMAILS=you@example.com
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+GOOGLE_CLIENT_ID=
+ENABLE_GEMINI_SCORING=false
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-1.5-flash
+ENABLE_SELF_UPDATE=false
+```
+
+**Create `frontend/.env.local`:**
+```env
+VITE_API_BASE_URL=http://localhost:8000
+VITE_GOOGLE_CLIENT_ID=
+```
+
+`VITE_API_BASE_URL` is the important one — it overrides the hardcoded Render fallback in `utils/api.ts` and points the frontend at your local backend instead.
+
+### 2. Run MongoDB locally
+
+Easiest path is a local Mongo container so you don't need `MONGO_URI` to point at Atlas:
+
+```bash
+docker run -d --name voice-clone-mongo -p 27017:27017 mongo:7
+```
+
+(If you'd rather keep using Atlas, just leave `MONGO_URI` in `backend/.env` pointed at your Atlas connection string — that works fine locally too, it's only Render's compute that's memory-capped, not Atlas.)
+
+### 3. Install FFmpeg
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install -y ffmpeg
+
+# macOS
+brew install ffmpeg
+
+# Windows
+choco install ffmpeg
+```
+
+Confirm it's on `PATH`: `ffmpeg -version`.
+
+### 4. Start the backend (loads env from `backend/.env` automatically via `python-dotenv`)
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate            # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+Give it a moment on first boot — TensorFlow import + Keras weight load + the `faster-whisper` base model download/load is the slow part (this is exactly the ~1 GB footprint that Render's free tier can't hold). Once you see Uvicorn's "Application startup complete", check `http://localhost:8000/docs`.
+
+### 5. Start the frontend (loads env from `frontend/.env.local` automatically via Vite)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Visit `http://localhost:3000`. Because `VITE_API_BASE_URL=http://localhost:8000`, all REST calls and the `/api/v1/analyze/live` WebSocket now hit your local backend instead of the (crashing) Render deployment.
+
+### 6. If you still want it hosted, not just local
+
+Render's **free** tier is the actual blocker, not Render itself — any of these fix it without touching code:
+- Upgrade to a **Render paid instance** with ≥ 1 GB (ideally 2 GB) RAM.
+- Deploy the backend on **Railway**, **Fly.io**, or a small **VPS/Docker host** with ≥ 2 GB RAM instead.
+- Split the deploy: keep the lightweight parts (auth, scam-rules engine) on free-tier compute, and move only `ml_service.py`'s TF/whisper inference to a separate, adequately-sized instance or GPU/CPU endpoint, called over HTTP from the main API.
+- Swap `faster-whisper base` for the smaller `tiny` model and/or lazy-load TensorFlow only on first `/analyze` request (rather than at import time) to shave peak memory — reduces but does not eliminate the risk of crossing 512 MB.
 
 ---
 
