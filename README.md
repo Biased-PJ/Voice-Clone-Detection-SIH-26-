@@ -2,7 +2,7 @@
 
 # 🛡️ Team Rocket — AI Voice Clone & Scam Call Detection
 
-### Smart India Hackathon 2026 · Problem Statement **SIH25104**
+### Smart India Hackathon 2026 · Problem Statement **SIH26104**
 
 **Real-time detection of AI-cloned voices and conversational fraud in phone calls — built to protect people from deepfake voice scams.**
 
