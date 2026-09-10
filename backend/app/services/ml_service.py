@@ -1,24 +1,41 @@
 
 """
-Real DNN-based voice-clone detector.
+DNN-based voice-clone detector with browser-audio decoding support.
 
-Loads the trained Keras model (mel-spectrogram -> Dense(64)->Dense(32)->sigmoid)
-and a replay buffer used for lightweight self-updating on high-confidence
-predictions.
+Supports normal uploaded audio as well as browser MediaRecorder audio
+such as WebM/Opus.
 
-Public API:
-    analyze_voice(audio_bytes, transcript, language) -> dict
+Browser audio flow:
+
+    WebM/Opus
+        ↓
+    FFmpeg
+        ↓
+    16 kHz mono WAV
+        ↓
+    librosa
+        ↓
+    DNN
+        ↓
+    probability
 """
 
 import io
 import logging
 import os
+import shutil
+import subprocess
 import threading
 
 import h5py
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Optional ML imports
+# ---------------------------------------------------------------------------
 
 try:
     import librosa
@@ -27,16 +44,17 @@ try:
 
     ML_AVAILABLE = True
 
-except ImportError:  # pragma: no cover
+except ImportError:
     ML_AVAILABLE = False
+
     logger.warning(
-        "librosa/tensorflow/h5py not installed — falling back to a neutral "
-        "placeholder score."
+        "librosa/tensorflow/h5py not installed - "
+        "falling back to a neutral placeholder score."
     )
 
 
 # ---------------------------------------------------------------------------
-# Config - MUST match training
+# Config - MUST MATCH TRAINING
 # ---------------------------------------------------------------------------
 
 SR = 16000
@@ -45,21 +63,31 @@ N_MELS = 40
 N_FFT = 512
 HOP_LENGTH = 256
 
-_ASSETS_DIR = os.path.join(
-    os.path.dirname(__file__),
-    "..",
-    "ml_assets",
+
+_ASSETS_DIR = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "ml_assets",
+    )
 )
+
 
 WEIGHTS_PATH = os.path.join(
     _ASSETS_DIR,
     "ai_vs_real_voice_dnn_weights.h5",
 )
 
+
 REPLAY_PATH = os.path.join(
     _ASSETS_DIR,
     "replay_buffer.npz",
 )
+
+
+# ---------------------------------------------------------------------------
+# Self-update configuration
+# ---------------------------------------------------------------------------
 
 HIGH_CONF_FAKE = 0.95
 HIGH_CONF_REAL = 0.05
@@ -67,356 +95,661 @@ UPDATE_LR = 1e-5
 UPDATE_EPOCHS = 1
 REPLAY_BATCH_FRACTION = 0.5
 
-# Keep self-update disabled unless explicitly enabled.
+
 ENABLE_SELF_UPDATE = (
-    os.getenv("ENABLE_SELF_UPDATE", "false").lower() == "true"
+    os.getenv(
+        "ENABLE_SELF_UPDATE",
+        "false",
+    ).lower()
+    == "true"
 )
 
 
-class _VoiceCloneDNN:
-    """Loaded once per process; thread-safe around self-update + save."""
+# ---------------------------------------------------------------------------
+# FFmpeg
+# ---------------------------------------------------------------------------
 
-    def __init__(self):
-        self._lock = threading.Lock()
+def _find_ffmpeg():
+    """
+    Find the FFmpeg executable.
 
-        # -------------------------------------------------------------------
-        # Calculate model input size
-        # -------------------------------------------------------------------
+    FFmpeg should normally be available through PATH.
+    """
 
-        dummy = np.zeros(
-            int(CLIP_SEC * SR),
-            dtype=np.float32,
+    ffmpeg_path = shutil.which("ffmpeg")
+
+    if ffmpeg_path:
+        return ffmpeg_path
+
+    # Windows fallback locations.
+    if os.name == "nt":
+        possible_paths = [
+            r"C:\ffmpeg\bin\ffmpeg.exe",
+            r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+            r"C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe",
+        ]
+
+        for path in possible_paths:
+            if os.path.isfile(path):
+                return path
+
+    return None
+
+
+FFMPEG_PATH = _find_ffmpeg()
+
+
+if FFMPEG_PATH:
+    logger.info(
+        "FFmpeg found: %s",
+        FFMPEG_PATH,
+    )
+else:
+    logger.warning(
+        "FFmpeg was not found in PATH. "
+        "Browser WebM/Opus audio may fail to decode."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Audio decoding
+# ---------------------------------------------------------------------------
+
+def _decode_audio_with_ffmpeg(audio_bytes: bytes) -> bytes:
+    """
+    Convert browser audio into WAV PCM.
+
+    Output:
+        - mono
+        - 16 kHz
+        - signed 16-bit PCM
+        - WAV container
+
+    This is required because MediaRecorder commonly produces WebM/Opus,
+    which soundfile/librosa may not decode directly.
+    """
+
+    if not audio_bytes:
+        raise ValueError("Audio data is empty.")
+
+    ffmpeg = FFMPEG_PATH or _find_ffmpeg()
+
+    if not ffmpeg:
+        raise RuntimeError(
+            "FFmpeg was not found. "
+            "Install FFmpeg and make sure it is available in PATH."
         )
 
-        dummy_mel = librosa.feature.melspectrogram(
-            y=dummy,
-            sr=SR,
-            n_fft=N_FFT,
-            hop_length=HOP_LENGTH,
-            n_mels=N_MELS,
+    try:
+        process = subprocess.run(
+            [
+                ffmpeg,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                "pipe:0",
+                "-ac",
+                "1",
+                "-ar",
+                str(SR),
+                "-c:a",
+                "pcm_s16le",
+                "-f",
+                "wav",
+                "pipe:1",
+            ],
+            input=audio_bytes,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
         )
 
-        input_dim = dummy_mel.flatten().shape[0]
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "FFmpeg executable could not be started."
+        ) from exc
 
-        # -------------------------------------------------------------------
-        # Build model architecture
-        # -------------------------------------------------------------------
+    except Exception as exc:
+        raise RuntimeError(
+            f"Could not run FFmpeg: {exc}"
+        ) from exc
 
-        self.model = models.Sequential([
-            layers.Input(
-                shape=(input_dim,)
-            ),
-
-            layers.Dense(
-                64,
-                activation="relu",
-                name="dense_1",
-            ),
-
-            layers.Dropout(0.3),
-
-            layers.Dense(
-                32,
-                activation="relu",
-                name="dense_2",
-            ),
-
-            layers.Dropout(0.2),
-
-            layers.Dense(
-                1,
-                activation="sigmoid",
-                name="output",
-            ),
-        ])
-
-        # -------------------------------------------------------------------
-        # Load H5 weights manually.
-        #
-        # The supplied H5 file contains:
-        #
-        # layers/dense/vars/0       -> 5040 x 64
-        # layers/dense/vars/1       -> 64
-        #
-        # layers/dense_1/vars/0     -> 64 x 32
-        # layers/dense_1/vars/1     -> 32
-        #
-        # layers/dense_2/vars/0     -> 32 x 1
-        # layers/dense_2/vars/1     -> 1
-        #
-        # This avoids the TensorFlow/Keras H5 layer-count mismatch.
-        # -------------------------------------------------------------------
-
-        if not os.path.exists(WEIGHTS_PATH):
-            raise FileNotFoundError(
-                f"DNN weights file not found: {WEIGHTS_PATH}"
-            )
-
-        with h5py.File(WEIGHTS_PATH, "r") as f:
-
-            # H5 dense -> project dense_1
-            self.model.get_layer("dense_1").set_weights([
-                f["layers/dense/vars/0"][:],
-                f["layers/dense/vars/1"][:],
-            ])
-
-            # H5 dense_1 -> project dense_2
-            self.model.get_layer("dense_2").set_weights([
-                f["layers/dense_1/vars/0"][:],
-                f["layers/dense_1/vars/1"][:],
-            ])
-
-            # H5 dense_2 -> project output
-            self.model.get_layer("output").set_weights([
-                f["layers/dense_2/vars/0"][:],
-                f["layers/dense_2/vars/1"][:],
-            ])
-
-        logger.info(
-            "DNN weights loaded successfully."
+    if process.returncode != 0:
+        error_message = (
+            process.stderr.decode(
+                "utf-8",
+                errors="replace",
+            ).strip()
         )
 
-        # -------------------------------------------------------------------
-        # Compile model
-        # -------------------------------------------------------------------
-
-        self.model.compile(
-            optimizer=tf.keras.optimizers.Adam(
-                learning_rate=UPDATE_LR
-            ),
-            loss="binary_crossentropy",
-            metrics=["accuracy"],
+        logger.warning(
+            "FFmpeg audio conversion failed: %s",
+            error_message,
         )
 
-        # -------------------------------------------------------------------
-        # Load replay buffer
-        # -------------------------------------------------------------------
+        raise ValueError(
+            f"FFmpeg could not decode the audio: {error_message}"
+        )
 
-        if not os.path.exists(REPLAY_PATH):
-            raise FileNotFoundError(
-                f"Replay buffer not found: {REPLAY_PATH}"
-            )
+    if not process.stdout:
+        raise ValueError(
+            "FFmpeg returned empty audio."
+        )
 
-        replay = np.load(REPLAY_PATH)
+    return process.stdout
 
-        self.X_replay = replay["X_replay"]
-        self.y_replay = replay["y_replay"]
 
-        logger.info(
-            "Loaded voice-clone DNN. input_dim=%s replay=%s",
-            input_dim,
-            self.X_replay.shape,
+def _load_audio(audio_bytes: bytes):
+    """
+    Decode audio and return a mono 16 kHz float32 waveform.
+
+    First attempt direct librosa decoding so existing WAV/MP3/FLAC
+    uploads continue to work.
+
+    If that fails, use FFmpeg. This handles WebM/Opus browser audio.
+    """
+
+    if not audio_bytes:
+        raise ValueError(
+            "Audio file is empty."
         )
 
     # -----------------------------------------------------------------------
-    # Audio processing
+    # Attempt direct decoding.
     # -----------------------------------------------------------------------
 
-    @staticmethod
-    def _split_into_2s_clips(y):
-        clip_len = int(CLIP_SEC * SR)
-        total_len = len(y)
-
-        if total_len <= clip_len:
-            padded = np.zeros(
-                clip_len,
-                dtype=y.dtype,
-            )
-
-            padded[:total_len] = y
-
-            return [padded]
-
-        clips = []
-
-        n_full = total_len // clip_len
-
-        for i in range(n_full):
-            start = i * clip_len
-
-            clips.append(
-                y[start:start + clip_len]
-            )
-
-        # Include remaining audio
-        if total_len - n_full * clip_len > 0:
-            clips.append(
-                y[total_len - clip_len:total_len]
-            )
-
-        return clips
-
-    # -----------------------------------------------------------------------
-    # Feature extraction
-    # -----------------------------------------------------------------------
-
-    @staticmethod
-    def _extract_features(clip):
-
-        mel = librosa.feature.melspectrogram(
-            y=clip,
-            sr=SR,
-            n_fft=N_FFT,
-            hop_length=HOP_LENGTH,
-            n_mels=N_MELS,
-        )
-
-        log_mel = librosa.power_to_db(
-            mel,
-            ref=np.max,
-        )
-
-        log_mel = (
-            log_mel - log_mel.mean()
-        ) / (
-            log_mel.std() + 1e-8
-        )
-
-        return log_mel.flatten()
-
-    # -----------------------------------------------------------------------
-    # Prediction
-    # -----------------------------------------------------------------------
-
-    def predict(self, audio_bytes: bytes):
-
+    try:
         y, _ = librosa.load(
             io.BytesIO(audio_bytes),
             sr=SR,
             mono=True,
         )
 
-        if y.size == 0:
-            raise ValueError(
-                "Uploaded audio contained no samples"
+        if y is not None and y.size > 0:
+            return y.astype(
+                np.float32,
+                copy=False,
             )
 
-        clips = self._split_into_2s_clips(y)
-
-        feats = np.array(
-            [
-                self._extract_features(c)
-                for c in clips
-            ],
-            dtype=np.float32,
+    except Exception as direct_error:
+        logger.debug(
+            "Direct audio decoding failed: %s. "
+            "Trying FFmpeg.",
+            direct_error,
         )
 
-        clip_probs = self.model.predict(
-            feats,
-            verbose=0,
-        ).flatten()
+    # -----------------------------------------------------------------------
+    # FFmpeg fallback.
+    # -----------------------------------------------------------------------
 
-        avg_score = float(
-            clip_probs.mean()
+    wav_bytes = _decode_audio_with_ffmpeg(
+        audio_bytes
+    )
+
+    try:
+        y, _ = librosa.load(
+            io.BytesIO(wav_bytes),
+            sr=SR,
+            mono=True,
         )
 
-        # Optional self-update
-        if ENABLE_SELF_UPDATE:
+    except Exception as exc:
+        logger.warning(
+            "librosa could not read FFmpeg-converted WAV: %s",
+            exc,
+        )
+
+        raise ValueError(
+            "Converted audio could not be read."
+        ) from exc
+
+    if y is None or y.size == 0:
+        raise ValueError(
+            "Audio contained no samples."
+        )
+
+    return y.astype(
+        np.float32,
+        copy=False,
+    )
+
+
+# ---------------------------------------------------------------------------
+# DNN
+# ---------------------------------------------------------------------------
+
+if ML_AVAILABLE:
+
+    class _VoiceCloneDNN:
+        """
+        Loaded once per process.
+
+        Thread-safe around inference and optional self-update.
+        """
+
+        def __init__(self):
+
+            self._lock = threading.Lock()
+
+            # ----------------------------------------------------------------
+            # Calculate model input size.
+            # ----------------------------------------------------------------
+
+            dummy = np.zeros(
+                int(CLIP_SEC * SR),
+                dtype=np.float32,
+            )
+
+            dummy_mel = librosa.feature.melspectrogram(
+                y=dummy,
+                sr=SR,
+                n_fft=N_FFT,
+                hop_length=HOP_LENGTH,
+                n_mels=N_MELS,
+            )
+
+            input_dim = dummy_mel.flatten().shape[0]
+
+            # ----------------------------------------------------------------
+            # Build model.
+            # ----------------------------------------------------------------
+
+            self.model = models.Sequential(
+                [
+                    layers.Input(
+                        shape=(input_dim,),
+                    ),
+
+                    layers.Dense(
+                        64,
+                        activation="relu",
+                        name="dense_1",
+                    ),
+
+                    layers.Dropout(
+                        0.3,
+                    ),
+
+                    layers.Dense(
+                        32,
+                        activation="relu",
+                        name="dense_2",
+                    ),
+
+                    layers.Dropout(
+                        0.2,
+                    ),
+
+                    layers.Dense(
+                        1,
+                        activation="sigmoid",
+                        name="output",
+                    ),
+                ]
+            )
+
+            # ----------------------------------------------------------------
+            # Check weights.
+            # ----------------------------------------------------------------
+
+            if not os.path.exists(WEIGHTS_PATH):
+                raise FileNotFoundError(
+                    f"DNN weights file not found: {WEIGHTS_PATH}"
+                )
+
+            # ----------------------------------------------------------------
+            # Load H5 weights.
+            # ----------------------------------------------------------------
+
+            with h5py.File(
+                WEIGHTS_PATH,
+                "r",
+            ) as f:
+
+                self.model.get_layer(
+                    "dense_1"
+                ).set_weights(
+                    [
+                        f["layers/dense/vars/0"][:],
+                        f["layers/dense/vars/1"][:],
+                    ]
+                )
+
+                self.model.get_layer(
+                    "dense_2"
+                ).set_weights(
+                    [
+                        f["layers/dense_1/vars/0"][:],
+                        f["layers/dense_1/vars/1"][:],
+                    ]
+                )
+
+                self.model.get_layer(
+                    "output"
+                ).set_weights(
+                    [
+                        f["layers/dense_2/vars/0"][:],
+                        f["layers/dense_2/vars/1"][:],
+                    ]
+                )
+
+            logger.info(
+                "DNN weights loaded successfully."
+            )
+
+            # ----------------------------------------------------------------
+            # Compile.
+            # ----------------------------------------------------------------
+
+            self.model.compile(
+                optimizer=tf.keras.optimizers.Adam(
+                    learning_rate=UPDATE_LR
+                ),
+                loss="binary_crossentropy",
+                metrics=["accuracy"],
+            )
+
+            # ----------------------------------------------------------------
+            # Replay buffer.
+            # ----------------------------------------------------------------
+
+            if not os.path.exists(REPLAY_PATH):
+                raise FileNotFoundError(
+                    f"Replay buffer not found: {REPLAY_PATH}"
+                )
+
+            replay = np.load(
+                REPLAY_PATH
+            )
+
+            self.X_replay = replay["X_replay"]
+            self.y_replay = replay["y_replay"]
+
+            logger.info(
+                "Loaded voice-clone DNN. "
+                "input_dim=%s replay=%s",
+                input_dim,
+                self.X_replay.shape,
+            )
+
+        # --------------------------------------------------------------------
+        # Audio processing
+        # --------------------------------------------------------------------
+
+        @staticmethod
+        def _split_into_2s_clips(y):
+
+            clip_len = int(
+                CLIP_SEC * SR
+            )
+
+            total_len = len(y)
+
+            if total_len <= clip_len:
+
+                padded = np.zeros(
+                    clip_len,
+                    dtype=np.float32,
+                )
+
+                padded[:total_len] = y
+
+                return [padded]
+
+            clips = []
+
+            n_full = total_len // clip_len
+
+            for i in range(n_full):
+
+                start = i * clip_len
+
+                clips.append(
+                    y[
+                        start:
+                        start + clip_len
+                    ]
+                )
+
+            # Include remaining audio using the last 2 seconds.
+            remainder = (
+                total_len
+                - n_full * clip_len
+            )
+
+            if remainder > 0:
+
+                clips.append(
+                    y[
+                        total_len - clip_len:
+                        total_len
+                    ]
+                )
+
+            return clips
+
+        # --------------------------------------------------------------------
+        # Feature extraction
+        # --------------------------------------------------------------------
+
+        @staticmethod
+        def _extract_features(clip):
+
+            mel = librosa.feature.melspectrogram(
+                y=clip,
+                sr=SR,
+                n_fft=N_FFT,
+                hop_length=HOP_LENGTH,
+                n_mels=N_MELS,
+            )
+
+            log_mel = librosa.power_to_db(
+                mel,
+                ref=np.max,
+            )
+
+            mean = log_mel.mean()
+            std = log_mel.std()
+
+            log_mel = (
+                log_mel - mean
+            ) / (
+                std + 1e-8
+            )
+
+            return log_mel.flatten()
+
+        # --------------------------------------------------------------------
+        # Prediction
+        # --------------------------------------------------------------------
+
+        def predict(
+            self,
+            audio_bytes: bytes,
+        ):
+
+            # Browser MediaRecorder audio is normally WebM/Opus.
+            # Convert it before passing the audio to librosa.
+            y = _load_audio(
+                audio_bytes
+            )
+
+            if y.size == 0:
+                raise ValueError(
+                    "Uploaded audio contained no samples."
+                )
+
+            # Split into model-sized 2-second clips.
+            clips = self._split_into_2s_clips(
+                y
+            )
+
+            # Extract features.
+            feats = np.array(
+                [
+                    self._extract_features(
+                        clip
+                    )
+                    for clip in clips
+                ],
+                dtype=np.float32,
+            )
+
+            if feats.size == 0:
+                raise ValueError(
+                    "Could not extract audio features."
+                )
+
+            # ----------------------------------------------------------------
+            # DNN inference.
+            # ----------------------------------------------------------------
 
             with self._lock:
 
-                if avg_score >= HIGH_CONF_FAKE:
+                clip_probs = self.model.predict(
+                    feats,
+                    verbose=0,
+                ).flatten()
 
-                    self._self_update(
-                        feats,
-                        pseudo_label=1,
-                    )
+            if clip_probs.size == 0:
+                raise ValueError(
+                    "DNN returned no predictions."
+                )
 
-                elif avg_score <= HIGH_CONF_REAL:
+            clip_probs = np.clip(
+                clip_probs,
+                0.0,
+                1.0,
+            )
 
-                    self._self_update(
-                        feats,
-                        pseudo_label=0,
-                    )
+            avg_score = float(
+                clip_probs.mean()
+            )
 
-        return avg_score, clip_probs, feats
+            # ----------------------------------------------------------------
+            # Optional self-update.
+            # ----------------------------------------------------------------
 
-    # -----------------------------------------------------------------------
-    # Self-update
-    # -----------------------------------------------------------------------
+            if ENABLE_SELF_UPDATE:
 
-    def _self_update(
-        self,
-        feats,
-        pseudo_label,
-    ):
+                with self._lock:
 
-        n_new = feats.shape[0]
+                    if avg_score >= HIGH_CONF_FAKE:
 
-        y_new = np.full(
-            (n_new,),
-            pseudo_label,
-            dtype=np.int32,
-        )
+                        self._self_update(
+                            feats,
+                            pseudo_label=1,
+                        )
 
-        n_replay = max(
-            1,
-            int(
-                n_new
-                * REPLAY_BATCH_FRACTION
-                / (1 - REPLAY_BATCH_FRACTION)
-            ),
-        )
+                    elif avg_score <= HIGH_CONF_REAL:
 
-        n_replay = min(
-            n_replay,
-            len(self.X_replay),
-        )
+                        self._self_update(
+                            feats,
+                            pseudo_label=0,
+                        )
 
-        replay_choice = np.random.choice(
-            len(self.X_replay),
-            size=n_replay,
-            replace=False,
-        )
-
-        X_batch = np.concatenate(
-            [
+            return (
+                avg_score,
+                clip_probs,
                 feats,
-                self.X_replay[replay_choice],
-            ],
-            axis=0,
-        )
+            )
 
-        y_batch = np.concatenate(
-            [
-                y_new,
-                self.y_replay[replay_choice],
-            ],
-            axis=0,
-        )
+        # --------------------------------------------------------------------
+        # Self-update
+        # --------------------------------------------------------------------
 
-        perm = np.random.permutation(
-            len(X_batch)
-        )
-
-        self.model.fit(
-            X_batch[perm],
-            y_batch[perm],
-            epochs=UPDATE_EPOCHS,
-            batch_size=16,
-            verbose=0,
-        )
-
-        # IMPORTANT:
-        # The current H5 format is not compatible with the old
-        # load_weights() call. We therefore do not overwrite the
-        # supplied trained weights automatically.
-        #
-        # Self-update remains disabled by default.
-        logger.info(
-            "Self-update applied in memory "
-            "(pseudo_label=%s, n_new=%s, n_replay=%s)",
+        def _self_update(
+            self,
+            feats,
             pseudo_label,
-            n_new,
-            n_replay,
-        )
+        ):
+
+            n_new = feats.shape[0]
+
+            y_new = np.full(
+                (n_new,),
+                pseudo_label,
+                dtype=np.int32,
+            )
+
+            if len(self.X_replay) == 0:
+                return
+
+            n_replay = max(
+                1,
+                int(
+                    n_new
+                    * REPLAY_BATCH_FRACTION
+                    / (
+                        1
+                        - REPLAY_BATCH_FRACTION
+                    )
+                ),
+            )
+
+            n_replay = min(
+                n_replay,
+                len(self.X_replay),
+            )
+
+            replay_choice = np.random.choice(
+                len(self.X_replay),
+                size=n_replay,
+                replace=False,
+            )
+
+            X_batch = np.concatenate(
+                [
+                    feats,
+                    self.X_replay[
+                        replay_choice
+                    ],
+                ],
+                axis=0,
+            )
+
+            y_batch = np.concatenate(
+                [
+                    y_new,
+                    self.y_replay[
+                        replay_choice
+                    ],
+                ],
+                axis=0,
+            )
+
+            perm = np.random.permutation(
+                len(X_batch)
+            )
+
+            self.model.fit(
+                X_batch[perm],
+                y_batch[perm],
+                epochs=UPDATE_EPOCHS,
+                batch_size=16,
+                verbose=0,
+            )
+
+            logger.info(
+                "Self-update applied in memory "
+                "(pseudo_label=%s, n_new=%s, n_replay=%s)",
+                pseudo_label,
+                n_new,
+                n_replay,
+            )
+
+else:
+
+    _VoiceCloneDNN = None
 
 
 # ---------------------------------------------------------------------------
-# Load DNN once
+# Load DNN once per process
 # ---------------------------------------------------------------------------
 
 _dnn = None
+
 
 if ML_AVAILABLE:
 
@@ -426,7 +759,7 @@ if ML_AVAILABLE:
 
     except Exception as exc:
 
-        logger.error(
+        logger.exception(
             "Failed to load voice-clone DNN: %s",
             exc,
         )
@@ -446,12 +779,16 @@ def analyze_voice(
     """
     Analyze an audio recording using the trained DNN.
 
+    Used by:
+        1. Recorded analysis
+        2. Live WebSocket analysis
+
     Returns:
         synthetic_probability
         speaker_match_probability
         ai_voice_percent
         confidence
-        features
+        features.per_clip_scores
     """
 
     if not ML_AVAILABLE or _dnn is None:
@@ -461,24 +798,29 @@ def analyze_voice(
             "speaker_match_probability": 0.5,
             "ai_voice_percent": 50.0,
             "confidence": 0.0,
-            "features": {},
+            "features": {
+                "per_clip_scores": [],
+            },
         }
 
     try:
 
-        avg_score, clip_probs, _feats = _dnn.predict(
+        (
+            avg_score,
+            clip_probs,
+            _feats,
+        ) = _dnn.predict(
             audio_bytes
         )
 
     except Exception as exc:
 
-        logger.warning(
-            "DNN inference failed (%s).",
-            exc,
+        logger.exception(
+            "DNN inference failed."
         )
 
         raise ValueError(
-            "unsupported or malformed audio"
+            f"unsupported or malformed audio: {exc}"
         ) from exc
 
     synthetic_probability = round(
@@ -491,27 +833,52 @@ def analyze_voice(
         4,
     )
 
-    confidence = (
-        round(
-            float(np.std(clip_probs)) * -1 + 1.0,
+    # Lower prediction spread means more consistent predictions.
+    if len(clip_probs) > 1:
+
+        confidence = round(
+            max(
+                0.0,
+                min(
+                    1.0,
+                    1.0
+                    - float(
+                        np.std(
+                            clip_probs
+                        )
+                    ),
+                ),
+            ),
             4,
         )
-        if len(clip_probs) > 1
-        else 0.75
-    )
+
+    else:
+
+        confidence = 0.75
 
     return {
-        "synthetic_probability": synthetic_probability,
-        "speaker_match_probability": speaker_match_probability,
+        "synthetic_probability": (
+            synthetic_probability
+        ),
+
+        "speaker_match_probability": (
+            speaker_match_probability
+        ),
+
         "ai_voice_percent": round(
             synthetic_probability * 100,
             2,
         ),
+
         "confidence": confidence,
+
         "features": {
             "per_clip_scores": [
-                round(float(p), 4)
-                for p in clip_probs
+                round(
+                    float(probability),
+                    4,
+                )
+                for probability in clip_probs
             ]
         },
     }

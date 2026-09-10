@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime
 import uuid
-import random
 
 from app.database import db
 from app.dependencies import get_current_user
@@ -46,21 +45,21 @@ async def end_call(session_id: str, current_user=Depends(get_current_user)):
     if existing["user_id"] != current_user["user_id"] and current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Not your session")
 
-    cities = [
-        ("Delhi", 28.6139, 77.2090), ("Mumbai", 19.0760, 72.8777),
-        ("Bengaluru", 12.9716, 77.5946), ("Hyderabad", 17.3850, 78.4867),
-        ("Chennai", 13.0827, 80.2707), ("Kolkata", 22.5726, 88.3639),
-        ("Pune", 18.5204, 73.8567), ("Ahmedabad", 23.0225, 72.5714),
-        ("Jaipur", 26.9124, 75.7873), ("Lucknow", 26.8467, 80.9462),
-        ("Chandigarh", 30.7333, 76.7794), ("Bhopal", 23.2599, 77.4126),
-    ]
-    city, latitude, longitude = random.choice(cities)
+    ended_at = datetime.utcnow()
+    started_at = existing.get("started_at")
+    duration_seconds = None
+    if started_at:
+        try:
+            duration_seconds = max(0, int((ended_at - datetime.fromisoformat(started_at)).total_seconds()))
+        except (TypeError, ValueError):
+            duration_seconds = None
+
     result = await db["call_sessions"].find_one_and_update(
         {"session_id": session_id},
         {"$set": {
             "status": "ended",
-            "ended_at": datetime.utcnow().isoformat(),
-            "threat_location": {"city": city, "latitude": latitude, "longitude": longitude},
+            "ended_at": ended_at.isoformat(),
+            "duration_seconds": duration_seconds,
         }},
         return_document=True,
     )
@@ -78,10 +77,13 @@ async def list_calls(current_user=Depends(get_current_user)):
     is_admin = current_user.get("role") == "admin"
 
     if is_admin:
-        analysis_filter = {}
+        analysis_filter = {"live_chunk": {"$ne": True}}
         session_filter = {}
     else:
-        analysis_filter = {"user_id": current_user["user_id"]}
+        analysis_filter = {
+            "user_id": current_user["user_id"],
+            "live_chunk": {"$ne": True},
+        }
         session_filter = {"user_id": current_user["user_id"]}
 
     analysis_cursor = db["analysis_results"].find(analysis_filter).sort("created_at", -1)
