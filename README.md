@@ -112,7 +112,7 @@ These two independent signals — plus speaker-match confidence and keyword-base
                          └──────────────┬────────────┘
                                         │
                      ┌──────────────────┼──────────────────┐
-                     ▼                                      ▼
+                     ▼                                     ▼
          ┌───────────────────────┐              ┌────────────────────────┐
          │  FFmpeg Normalization │              │  Speech-to-Text (STT)  │
          │  → 16kHz mono PCM WAV │              │ faster-whisper (base)  │
