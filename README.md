@@ -15,7 +15,7 @@
 [![License](https://img.shields.io/badge/License-Unspecified-lightgrey)](#-license)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-AWS-FF9900?logo=amazonaws&logoColor=white)](https://65.2.63.9/)
 
-**🔴 Live Deployment:** [https://65.2.63.9/](https://65.2.63.9/)
+**🔴 Live Deployment on AWS:** [https://65.2.63.9/](https://65.2.63.9/)
 
 </div>
 
@@ -53,7 +53,7 @@
 
 ## 🧭 Overview
 
-**Team Rocket** is a full-stack web platform built for **Smart India Hackathon 2026 (SIH25104)** that detects **AI-generated / cloned voices** and **conversational scam intent** in real time, over both **live phone-style calls** and **uploaded audio recordings**.
+**Team Rocket** is a full-stack web platform built for **Smart India Hackathon 2026 (SIH26104)** that detects **AI-generated / cloned voices** and **conversational scam intent** in real time, over both **live phone-style calls** and **uploaded audio recordings**.
 
 As voice-cloning tools (ElevenLabs, RVC, XTTS, and similar) become trivially easy to use, fraudsters are increasingly impersonating relatives, bank officials, and government representatives using synthetic voices to run financial scams. Team Rocket combines **acoustic deepfake detection**, **multilingual conversational fraud analysis**, and **automatic speech transcription** into a single, unified risk score — giving everyday users and call-center/security teams a way to catch a scam *while it's happening*, not after the money is gone.
 
@@ -61,7 +61,7 @@ As voice-cloning tools (ElevenLabs, RVC, XTTS, and similar) become trivially eas
 
 ## 🎯 Problem Statement
 
-> **SIH25104 — AI-based solution for detection of AI-generated fake/spoofed voices in calls, and identification of fraudulent intent in real time.**
+> **SIH26104 — AI-based solution for detection of AI-generated fake/spoofed voices in calls, and identification of fraudulent intent in real time.**
 
 Voice cloning technology can now convincingly mimic a specific person's voice from just a few seconds of sample audio. This is actively being weaponized for:
 
@@ -107,9 +107,9 @@ These two independent signals — plus speaker-match confidence and keyword-base
 
 ```
                          ┌───────────────────────────┐
-                         │        Audio Input         │
-                         │ (Mic stream / File upload) │
-                         └──────────────┬──────────────┘
+                         │        Audio Input        │
+                         │ (Mic stream / File upload)│
+                         └──────────────┬────────────┘
                                         │
                      ┌──────────────────┼──────────────────┐
                      ▼                                      ▼
@@ -363,8 +363,6 @@ npm run clean     # Remove dist/ and server.js
 ---
 
 ## 📡 API Reference
-
-Base URL: `http://localhost:8000` (or your deployed backend URL)
 
 ### Authentication — `/api/v1/auth`
 | Method | Endpoint | Description |
@@ -676,9 +674,16 @@ Render's **free** tier is the actual blocker, not Render itself — any of these
 
 ## 👥 Team
 
-Built by **Team Rocket** for **Smart India Hackathon 2026**, Problem Statement **SIH25104** — AI-based detection of spoofed/cloned voices and fraudulent call intent.
+Built by **Team Rocket** for **Smart India Hackathon 2026**, Problem Statement **SIH26104** — AI-based detection of spoofed/cloned voices and fraudulent call intent.
 
-*(Add individual team member names, roles, and links here.)*
+| Name | Role |
+|---|---|
+| Parth Jain | Team Lead & Frontend Architect |
+| Tushar Tanwar | Backend & Cloud Infrastructure Engineer |
+| Akshay Singh Bchehhat | AI/ML Engineer — Voice Detection |
+| Ichha Poddar | Associate Backend Engineer |
+| Prachi Verma | Public Relations |
+| Amishi Prasad | Tester |
 
 ---
 
