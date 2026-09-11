@@ -677,7 +677,7 @@ Render's **free** tier is the actual blocker, not Render itself — any of these
 Built by **Team Rocket** for **Smart India Hackathon 2026**, Problem Statement **SIH26104** — AI-based detection of spoofed/cloned voices and fraudulent call intent.
 
 | Name | Role |
-|---|---|
+|:---:|:---:|
 | Parth Jain | Team Lead & Frontend Architect |
 | Tushar Tanwar | Backend & Cloud Infrastructure Engineer |
 | Akshay Singh Bchehhat | AI/ML Engineer — Voice Detection |
