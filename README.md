@@ -114,36 +114,36 @@ These two independent signals — plus speaker-match confidence and keyword-base
                      ┌──────────────────┼──────────────────┐
                      ▼                                      ▼
          ┌───────────────────────┐              ┌────────────────────────┐
-         │  FFmpeg Normalization  │              │   Speech-to-Text (STT)  │
-         │  → 16kHz mono PCM WAV  │              │  faster-whisper (base)  │
-         └───────────┬────────────┘              └────────────┬────────────┘
-                     ▼                                        ▼
+         │  FFmpeg Normalization │              │  Speech-to-Text (STT)  │
+         │  → 16kHz mono PCM WAV │              │ faster-whisper (base)  │
+         └───────────┬───────────┘              └────────────┬───────────┘
+                     ▼                                       ▼
        ┌─────────────────────────────┐          ┌────────────────────────────┐
-       │  Mel-Spectrogram Features    │          │      Transcript Text        │
-       │  (2-second clip windows)     │          └────────────┬────────────────┘
-       └───────────────┬───────────────┘                       ▼
+       │  Mel-Spectrogram Features   │          │      Transcript Text       │
+       │  (2-second clip windows)    │          └────────────┬───────────────┘
+       └───────────────┬─────────────┘                       ▼
                        ▼                          ┌────────────────────────────┐
-       ┌─────────────────────────────┐            │  Multilingual Scam Rules    │
-       │   DNN: AI-vs-Real Voice      │            │  Engine (7 languages)       │
-       │   Classifier (Keras/TF)      │            │  + optional Gemini scoring  │
-       └───────────────┬───────────────┘            └────────────┬────────────────┘
-                       ▼                                          ▼
+       ┌─────────────────────────────┐            │  Multilingual Scam Rules   │
+       │   DNN: AI-vs-Real Voice     │            │  Engine (7 languages)      │
+       │   Classifier (Keras/TF)     │            │ + optional Gemini scoring  │
+       └───────────────┬─────────────┘            └────────────┬───────────────┘
+                       ▼                                       ▼
               synthetic_probability                        scam_score (0–100)
               speaker_match_probability                     + reasons[]
                        │                                          │
                        └───────────────┬──────────────────────────┘
                                        ▼
                          ┌───────────────────────────┐
-                         │       Risk Engine           │
-                         │  fuses both signals into:   │
-                         │  risk_score, risk_level,     │
-                         │  risk_factors, suggestion    │
-                         └──────────────┬───────────────┘
+                         │       Risk Engine         │
+                         │  fuses both signals into: │
+                         │  risk_score, risk_level,  │
+                         │  risk_factors, suggestion │
+                         └──────────────┬────────────┘
                                         ▼
-                         ┌───────────────────────────┐
-                         │   Live/Final API Response   │
-                         │  → Dashboard + Call History  │
-                         └───────────────────────────┘
+                         ┌────────────────────────────┐
+                         │ Live/Final API Response    │
+                         │ → Dashboard + Call History │
+                         └────────────────────────────┘
 ```
 
 ---
@@ -159,10 +159,10 @@ Team Rocket is a classic **decoupled full-stack architecture**:
 - **FFmpeg** — Used as a universal audio-decoding layer so that any browser-recorded (WebM/Opus) or uploaded (MP3/FLAC/WAV) audio can be normalized to 16 kHz mono PCM before feature extraction.
 
 ```
-┌──────────────────┐        REST / WebSocket        ┌──────────────────────┐        Motor (async)        ┌───────────┐
-│   React Frontend   │  ───────────────────────────▶  │   FastAPI Backend      │  ─────────────────────────▶  │  MongoDB   │
-│  (Vite, TS, Tailwind)│ ◀───────────────────────────  │  (auth, ML, STT, risk)  │ ◀─────────────────────────  │  (Atlas)   │
-└──────────────────┘         JSON / streaming         └──────────┬─────────────┘                              └───────────┘
+┌───────────────────────┐        REST / WebSocket        ──────────────────────────        Motor (async)         ┌───────────┐
+│   React Frontend      │  ───────────────────────────▶ │   FastAPI Backend       │  ─────────────────────────▶ │  MongoDB  │
+│  (Vite, TS, Tailwind) │ ◀───────────────────────────  │  (auth, ML, STT, risk)  │ ◀─────────────────────────  │  (Atlas)  │
+└───────────────────────┘         JSON / streaming       ──────────┬───────────────                              └───────────┘
                                                                    │
                                                     ┌──────────────┼──────────────┐
                                                     ▼              ▼              ▼
@@ -679,12 +679,6 @@ Render's **free** tier is the actual blocker, not Render itself — any of these
 Built by **Team Rocket** for **Smart India Hackathon 2026**, Problem Statement **SIH25104** — AI-based detection of spoofed/cloned voices and fraudulent call intent.
 
 *(Add individual team member names, roles, and links here.)*
-
----
-
-## 📄 License
-
-No license file is currently included in this repository. Add a `LICENSE` file (MIT, Apache-2.0, etc.) to clarify usage terms before external distribution.
 
 ---
 
