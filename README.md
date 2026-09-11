@@ -679,7 +679,7 @@ Built by **Team Rocket** for **Smart India Hackathon 2026**, Problem Statement *
 | Name | Role |
 |:---:|:---:|
 | Parth Jain | Team Lead & Frontend Architect |
-| Tushar Tanwar | Backend & Cloud Infrastructure Engineer |
+| Tushar | Backend & Cloud Infrastructure Engineer |
 | Akshay Singh Bchehhat | AI/ML Engineer — Voice Detection |
 | Ichha Poddar | Associate Backend Engineer |
 | Prachi Verma | Public Relations |
