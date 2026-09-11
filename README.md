@@ -13,6 +13,9 @@
 [![MongoDB](https://img.shields.io/badge/Database-MongoDB-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-Unspecified-lightgrey)](#-license)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-AWS-FF9900?logo=amazonaws&logoColor=white)](https://65.2.63.9/)
+
+**🔴 Live Deployment:** [https://65.2.63.9/](https://65.2.63.9/)
 
 </div>
 
@@ -550,9 +553,16 @@ The `analyse.py` API layer additionally computes a plain-English **conclusion** 
 
 ## ☁️ Deployment
 
-- **Backend:** Configured for platforms like [Render](https://render.com/) (a Render URL is the default `API_BASE_URL` fallback in `frontend/src/utils/api.ts`). Any ASGI-compatible host (Render, Railway, Fly.io, a Docker container behind Nginx, etc.) works — just ensure **FFmpeg** is installed on the host image, since both the ML and STT pipelines depend on it.
-- **Frontend:** Static build via `npm run build` (Vite) — deployable to Vercel, Netlify, Render Static Sites, or any static host. Set `VITE_API_BASE_URL` to point at your deployed backend.
-- **Database:** MongoDB Atlas recommended for a managed, zero-ops deployment; set `MONGO_URI` accordingly.
+**Live on AWS:** [https://65.2.63.9/](https://65.2.63.9/)
+
+The project is deployed end-to-end on an **AWS EC2** instance:
+
+- **Backend:** FastAPI app served on the EC2 instance (ASGI server behind the box's networking), with **FFmpeg** installed on the host image since both the ML and STT pipelines depend on it.
+- **Frontend:** Production build (`npm run build`, Vite) served from the same instance, with `VITE_API_BASE_URL` pointed at the deployed backend.
+- **Database:** MongoDB (Atlas or self-hosted) reachable from the instance via `MONGO_URI`.
+- **Access:** The app is currently served over HTTPS on a self-signed/IP-based certificate at `https://65.2.63.9/` — browsers will show a certificate warning; proceed past it (or click "Advanced → Proceed") to reach the app, since the deployment does not yet have a domain name or a CA-signed certificate.
+
+> ⚠️ This is a hackathon demo deployment on a bare IP address — a proper domain name and a CA-issued TLS certificate (e.g. via Let's Encrypt) are on the roadmap before any production use.
 
 ---
 
